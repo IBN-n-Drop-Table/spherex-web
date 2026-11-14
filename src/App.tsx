@@ -46,13 +46,13 @@ export default function App() {
             }
           />
           <div className="absolute left-3 top-3 z-10 flex w-fit flex-col gap-2">
-            <TargetPicker
-              onSelect={t => setUrl({ ...targetPosition(t), fov: TARGET_FOV_ARCMIN })}
-            />
             <CoordinatesPanel
               key={`${ra}|${dec}|${fov}`}
               value={{ ra, dec, fov }}
               onSubmit={c => setUrl(c)}
+            />
+            <TargetPicker
+              onSelect={t => setUrl({ ...targetPosition(t), fov: TARGET_FOV_ARCMIN })}
             />
           </div>
           <button

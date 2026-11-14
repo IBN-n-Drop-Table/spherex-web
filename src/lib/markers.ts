@@ -15,7 +15,7 @@ export function addTargetMarkers(
   opts: { size: number; labels: boolean },
 ) {
   const catalog = A.catalog({
-    name: 'Challenge targets',
+    name: 'Points of interest',
     shape: 'circle',
     // Aladin's default is `true`: draw only footprints and silently skip plain point sources.
     onlyFootprints: false,

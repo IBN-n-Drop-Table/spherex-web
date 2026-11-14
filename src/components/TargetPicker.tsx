@@ -5,7 +5,7 @@ interface Props {
   onSelect: (target: Target) => void
 }
 
-/** Drop-down with the challenge's five test objects; picking one moves the map to it. */
+/** Drop-down with the five points of interest; picking one moves the map to it. */
 export default function TargetPicker({ onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -33,7 +33,7 @@ export default function TargetPicker({ onSelect }: Props) {
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
       >
-        <span>Challenge targets</span>
+        <span>Points of interest</span>
         <span aria-hidden="true" className={`text-xs transition-transform ${open ? 'rotate-180' : ''}`}>
           ▼
         </span>
@@ -42,7 +42,7 @@ export default function TargetPicker({ onSelect }: Props) {
       {open && (
         <ul
           role="listbox"
-          aria-label="Challenge targets"
+          aria-label="Points of interest"
           className="absolute left-0 top-full z-20 mt-1 w-72 overflow-hidden rounded bg-black/90 shadow-lg backdrop-blur"
         >
           {TARGETS.map(t => (
