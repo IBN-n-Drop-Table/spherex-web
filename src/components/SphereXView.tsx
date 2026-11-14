@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useSkyPatch } from '../hooks/useSkyPatch'
 import { useAutoplay } from '../hooks/useAutoplay'
-import { LAYER_DIFF } from '../lib/layers'
+import { LAYER_DETECT, LAYER_DIFF } from '../lib/layers'
+import { buildDiffFrames, totalFrame, type DiffFrame } from '../lib/diffFrames'
 import { fmt } from '../lib/coords'
 import SkyViewer from './SkyViewer'
 import SpectrumPanel, { type SpectrumView } from './SpectrumPanel'
@@ -13,15 +14,18 @@ import { resolveAssetUrl } from '../api/http'
 import { useReports } from '../hooks/useReports'
 import { classificationInfo } from '../lib/reports'
 import { positionInImage } from '../lib/shareCard'
-import type { CommunityMarker } from './SkyViewer'
+import type { CommunityMarker, MotionMarks } from './SkyViewer'
+import { expectedPixel, knownTarget } from '../lib/motion'
 import type { JobProgress } from '../hooks/useSkyPatch'
 import JobProgressBar from './JobProgressBar'
-import TimelineBar from './TimelineBar'
+import TimelineBar, { type TimelineFrame } from './TimelineBar'
 import LayerSwitcher from './LayerSwitcher'
 
 const FPS_OPTIONS = [1, 2, 4, 12, 24]
 const NO_ANOMALIES: never[] = []
 const NO_EPOCHS: never[] = []
+const NO_FRAMES: DiffFrame[] = []
+const fmtDate = (iso: string | undefined) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 // Chemical filters named in the contract; shown (inert) until real data says otherwise.
 const DEFAULT_FILTERS = ['H2O', 'CO2', 'CO']
 // The API only accepts fov between 1 and 30 arcmin (422 otherwise) and caps live jobs at 15;
@@ -69,18 +73,31 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
   const [allTargets, setAllTargets] = useState(false) // community feed: every target, not just this one
   const [showMarkers, setShowMarkers] = useState(false) // community reports drawn on the image
   const [highlightReport, setHighlightReport] = useState<string | null>(null)
+  const [motionOn, setMotionOn] = useState(true) // rings + arrow where the target should be (checkbox in the difference notice)
   const fps = FPS_OPTIONS[fpsIdx]
-  const player = useAutoplay(data?.timelapse_epochs.length ?? 0, fps)
+  const diff = data?.difference_imaging
+  const patchKey = data ? `${data.patch.wcs.crval1}|${data.patch.wcs.crval2}` : null
 
-  const epoch = data?.timelapse_epochs[player.index]
-  const imageUrl =
-    data && epoch
-      ? layer === LAYER_DIFF
-        ? data.difference_imaging.subtracted_image_url
-        : (epoch.chemical_filters[layer] ?? epoch.image_url)
-      : null
-  const anomalies =
-    layer === LAYER_DIFF && data ? data.difference_imaging.detected_anomalies : NO_ANOMALIES
+  // One player for everything. On the epoch layers its frames are the visits; on Difference they are
+  // the CONSECUTIVE pairs of visits (3 epochs -> 2 frames); on Detections it is the single
+  // first-vs-last image the anomaly detector ran on.
+  const inDiff = layer === LAYER_DIFF
+  const inDetect = layer === LAYER_DETECT
+  const diffLike = inDiff || inDetect
+  const diffFrames = useMemo(() => (diff ? buildDiffFrames(diff) : NO_FRAMES), [diff])
+  const detectFrames = useMemo(() => (diff ? [totalFrame(diff)] : NO_FRAMES), [diff])
+  const frames = inDiff ? diffFrames : inDetect ? detectFrames : null
+  const player = useAutoplay(frames ? frames.length : (data?.timelapse_epochs.length ?? 0), fps)
+
+  const epoch = diffLike ? undefined : data?.timelapse_epochs[player.index]
+  const activeDiff = frames?.[player.index]
+  const timelineFrames = useMemo<TimelineFrame[]>(
+    () =>
+      frames
+        ? frames.map(f => ({ label: f.label }))
+        : (data?.timelapse_epochs ?? NO_EPOCHS).map(e => ({ label: new Date(e.date).toLocaleDateString() })),
+    [frames, data],
+  )
 
   // Filters present in ANY epoch (a molecule is omitted from visits that don't cover it).
   const filters = useMemo(() => {
@@ -89,10 +106,39 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
     return [...DEFAULT_FILTERS.filter(f => seen.has(f)), ...[...seen].filter(f => !DEFAULT_FILTERS.includes(f))]
   }, [data])
   const unavailable = epoch ? filters.filter(f => !epoch.chemical_filters[f]) : []
-  const diff = data?.difference_imaging
+
+  const imageUrl = !data
+    ? null
+    : diffLike
+      ? (activeDiff?.imageUrl ?? null)
+      : epoch
+        ? (epoch.chemical_filters[layer] ?? epoch.image_url)
+        : null
+  // The circles (and their spectra) belong to the first-vs-last image, so only Detections shows them.
+  const anomalies = inDetect && data ? data.difference_imaging.detected_anomalies : NO_ANOMALIES
+
+  // Where the target should be, from its catalogue proper motion (expected, not measured).
+  const known = data ? knownTarget(data.target_info.name) : undefined
+  const motion = useMemo<MotionMarks | null>(() => {
+    if (!data || !known || !motionOn || !diffLike || !activeDiff) return null
+    const t1 = Date.parse(data.timelapse_epochs[0].date) // the patch is centred on the target at this date
+    const at = (id: string) => {
+      const date = data.timelapse_epochs.find(e => e.epoch_id === id)?.date
+      return date ? expectedPixel(known, data.patch, t1, Date.parse(date)) : null
+    }
+    const before = at(activeDiff.epochB)
+    const after = at(activeDiff.epochA)
+    if (!before || !after) return null
+    return {
+      points: [
+        { ...before, color: '#60a5fa', label: `${known.name}: expected position in ${activeDiff.epochB} (blue: where it was)` },
+        { ...after, color: '#f87171', label: `${known.name}: expected position in ${activeDiff.epochA} (red: where it is)` },
+      ],
+      arrow: { from: before, to: after },
+    }
+  }, [data, known, motionOn, diffLike, activeDiff])
 
   // A probe belongs to the patch it was made on; a new patch discards it.
-  const patchKey = data ? `${data.patch.wcs.crval1}|${data.patch.wcs.crval2}` : null
   const activeProbe = probe && probe.patchKey === patchKey ? probe : null
   const probePoint = useMemo<ProbePoint | null>(() => {
     if (!data || !activeProbe) return null
@@ -197,10 +243,10 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
 
   return (
     <div className="absolute inset-0 z-0 bg-black">
-      {data && epoch && imageUrl && (
+      {data && imageUrl && (
         <SkyViewer
           imageUrl={imageUrl}
-          alt={`${data.target_info.name} ${epoch.epoch_id} ${layer}`}
+          alt={`${data.target_info.name} ${diffLike ? (activeDiff?.label ?? '') : (epoch?.epoch_id ?? '')} ${layer}`}
           anomalies={anomalies}
           selectedId={selectedAnomaly}
           onSelect={id => {
@@ -210,6 +256,7 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
           }}
           probe={activeProbe}
           communityMarkers={communityMarkers}
+          motion={motion}
           highlightedCommunityId={highlightReport}
           onCommunitySelect={setHighlightReport}
           onProbe={(x, y) => {
@@ -258,7 +305,7 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
         {data && leftPanel === 'lightcurve' && (
           <LightCurvePanel
             points={data.light_curve}
-            currentEpochId={epoch?.epoch_id}
+            currentEpochId={diffLike ? activeDiff?.epochA : epoch?.epoch_id}
             onClose={() => setLeftPanel(null)}
           />
         )}
@@ -284,19 +331,59 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
             {data.fallback_message ?? 'Showing cached data for another position.'}
           </p>
         )}
-        {layer === LAYER_DIFF && diff && (
+        {diffLike && diff && activeDiff && (
           <div className="rounded bg-black/70 px-3 py-2 backdrop-blur">
-            <div className="font-medium text-slate-100">
-              {diff.detection_label ?? 'Software-assisted detection (BETA)'} · {diff.epoch_a} − {diff.epoch_b}
+            {inDetect ? (
+              <>
+                <div className="font-medium text-slate-100">
+                  {diff.detection_label ?? 'Software-assisted detection (BETA)'} · {activeDiff.label}
+                </div>
+                <div className="text-slate-300">
+                  {diff.detection_notice ?? 'Detected by software: needs human verification'}
+                </div>
+                <div className="mt-1 flex justify-center gap-3 text-[11px] text-slate-400">
+                  <span><span className="text-emerald-400">●</span> appeared</span>
+                  <span><span className="text-rose-400">●</span> disappeared</span>
+                  <span><span className="text-amber-400">●</span> contaminated</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-medium text-slate-100">
+                  {activeDiff.consecutive ? 'What changed between consecutive visits' : 'What changed between the first and the last visit'}{' '}
+                  · {activeDiff.label}
+                </div>
+                {diffFrames.length > 1 && (
+                  <div className="text-slate-300">Press play to step through the {diffFrames.length} differences.</div>
+                )}
+              </>
+            )}
+            <div className="mt-1 text-[11px] text-slate-400">
+              {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochB)?.date)} →{' '}
+              {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochA)?.date)}
+              {activeDiff.deltaDays != null ? ` · ${Math.round(activeDiff.deltaDays)} days apart` : ''}
+              {activeDiff.expectedShiftArcsec != null ? ` · expected motion ${activeDiff.expectedShiftArcsec.toFixed(1)}″` : ''}
             </div>
-            <div className="text-slate-300">
-              {diff.detection_notice ?? 'Detected by software: needs human verification'}
+            {activeDiff.weak && (
+              <div className="mt-1 text-amber-300">
+                Weak signal: the expected motion is under one SPHEREx pixel (6.15″), so any dipole will be faint.
+              </div>
+            )}
+            <div className="mt-1 text-[11px] text-slate-400">
+              <span className="text-red-400">red</span> brighter in the later visit ·{' '}
+              <span className="text-sky-400">blue</span> brighter in the earlier visit
             </div>
-            <div className="mt-1 flex justify-center gap-3 text-[11px] text-slate-400">
-              <span><span className="text-emerald-400">●</span> appeared</span>
-              <span><span className="text-rose-400">●</span> disappeared</span>
-              <span><span className="text-amber-400">●</span> contaminated</span>
-            </div>
+            {known && (
+              <label className="mt-1 flex items-center justify-center gap-2 text-[11px] text-slate-300">
+                <input type="checkbox" checked={motionOn} onChange={e => setMotionOn(e.target.checked)} />
+                Mark where {known.name} should be, from its known motion
+              </label>
+            )}
+            {known && motionOn && (
+              <div className="text-[11px] text-slate-500">
+                <span className="text-sky-400">blue ring</span> before · <span className="text-red-400">red ring</span> now · arrow: expected motion
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -326,7 +413,7 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
         unavailable={unavailable}
       />
       <TimelineBar
-        epochs={data?.timelapse_epochs ?? NO_EPOCHS}
+        frames={timelineFrames}
         index={player.index}
         playing={player.playing}
         fps={fps}

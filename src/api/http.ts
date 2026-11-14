@@ -1,10 +1,15 @@
 import { API_BASE_URL, REQUEST_TIMEOUT_MS } from './config'
+import { parseProblem, type ApiProblem } from './problem'
 
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
-    super(message)
+    super(message) // the raw response body
     this.status = status
+  }
+  /** The body read as the backend's error shape (works with the old and the new one). */
+  get problem(): ApiProblem {
+    return parseProblem(this.status, this.message)
   }
 }
 export class TimeoutError extends Error {}

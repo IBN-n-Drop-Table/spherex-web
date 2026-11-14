@@ -22,8 +22,11 @@ const IDLE: SpectrumProbeState = { data: null, loading: false, error: null, job:
 function describeError(e: unknown): string {
   if (e instanceof JobFailedError) return e.message
   if (e instanceof ApiError) {
-    if (e.status === 503) return 'The backend is busy. Try again in a moment.'
-    if (e.status === 422) return 'The backend rejected that position.'
+    const { status, detail } = e.problem
+    if (status === 503) return 'The backend is busy. Try again in a moment.'
+    if (status === 422) return detail ? `The backend rejected that position: ${detail}` : 'The backend rejected that position.'
+    if (status >= 500) return 'The server had a problem. Try again in a moment.'
+    if (detail) return detail // e.g. a job that expired while we were waiting
   }
   return String(e)
 }

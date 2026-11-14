@@ -27,25 +27,17 @@ export function timeAgo(iso: string, now = Date.now()): string {
   return days < 30 ? `${days} d ago` : new Date(iso).toLocaleDateString()
 }
 
-/** FastAPI 422 bodies are `{detail: [{loc, msg}]}`; turn them (and other failures) into one sentence. */
+/**
+ * One sentence for a failed report request. The backend's `detail` is already readable (a 422 names
+ * the field: "discoverer: String should have at most 50 characters"), so it is shown as is.
+ */
 export function describeReportError(e: unknown): string {
   if (e instanceof ApiError) {
-    if (e.status === 422) {
-      try {
-        const detail = JSON.parse(e.message)?.detail
-        if (Array.isArray(detail) && detail.length) {
-          return detail
-            .map((d: { loc?: (string | number)[]; msg?: string }) => `${(d.loc ?? []).slice(1).join('.')}: ${d.msg ?? 'invalid'}`)
-            .join('; ')
-        }
-        if (typeof detail === 'string') return detail
-      } catch {
-        /* not JSON: fall through */
-      }
-      return 'The backend rejected the report.'
-    }
-    if (e.status === 404) return 'That report no longer exists.'
-    if (e.status >= 500) return 'The server had a problem. Try again in a moment.'
+    const { status, detail } = e.problem
+    if (status === 422) return detail ?? 'The backend rejected the report.'
+    if (status === 404) return 'That report no longer exists.'
+    if (status >= 500) return 'The server had a problem. Try again in a moment.'
+    return detail ?? 'The server rejected the request.'
   }
   return 'Could not reach the server.'
 }

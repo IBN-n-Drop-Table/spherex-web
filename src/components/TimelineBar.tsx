@@ -1,10 +1,14 @@
-import type { Epoch } from '../types/api'
 import {
   ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon, SkipNextIcon, SkipPreviousIcon,
 } from './icons'
 
+/** One step of the player: an epoch (labelled with its date) or a difference between two visits. */
+export interface TimelineFrame {
+  label: string
+}
+
 interface Props {
-  epochs: Epoch[]
+  frames: TimelineFrame[]
   index: number
   playing: boolean
   fps: number
@@ -18,28 +22,28 @@ interface Props {
 const btn = 'inline-flex items-center px-1.5 py-1 hover:text-sky-400 disabled:opacity-40'
 
 export default function TimelineBar({
-  epochs, index, playing, fps, onIndex, onToggle, onPrev, onNext, onFpsClick,
+  frames, index, playing, fps, onIndex, onToggle, onPrev, onNext, onFpsClick,
 }: Props) {
-  const epoch = epochs[index]
-  const none = epochs.length === 0 // no data yet: same bar, everything disabled
-  const multi = epochs.length > 1
+  const frame = frames[index]
+  const none = frames.length === 0 // no data yet: same bar, everything disabled
+  const multi = frames.length > 1
   return (
     <div className="absolute bottom-0 left-0 right-28 z-10 flex items-center gap-3 bg-black/80 backdrop-blur px-4 py-2 text-sm text-white">
       <button className={btn} onClick={onFpsClick} disabled={none} title="Playback speed">{fps} fps</button>
-      <button className={btn} onClick={() => onIndex(0)} disabled={!multi} aria-label="First epoch" title="First epoch"><SkipPreviousIcon /></button>
-      <button className={btn} onClick={onPrev} disabled={!multi} aria-label="Previous epoch" title="Previous epoch"><ChevronLeftIcon /></button>
+      <button className={btn} onClick={() => onIndex(0)} disabled={!multi} aria-label="First frame" title="First frame"><SkipPreviousIcon /></button>
+      <button className={btn} onClick={onPrev} disabled={!multi} aria-label="Previous frame" title="Previous frame"><ChevronLeftIcon /></button>
       <button className={btn} onClick={onToggle} disabled={!multi} aria-label={playing ? 'Pause' : 'Play'}>
         {playing ? <PauseIcon /> : <PlayIcon />}
       </button>
-      <button className={btn} onClick={onNext} disabled={!multi} aria-label="Next epoch" title="Next epoch"><ChevronRightIcon /></button>
-      <button className={btn} onClick={() => onIndex(epochs.length - 1)} disabled={!multi} aria-label="Last epoch" title="Last epoch"><SkipNextIcon /></button>
+      <button className={btn} onClick={onNext} disabled={!multi} aria-label="Next frame" title="Next frame"><ChevronRightIcon /></button>
+      <button className={btn} onClick={() => onIndex(frames.length - 1)} disabled={!multi} aria-label="Last frame" title="Last frame"><SkipNextIcon /></button>
       <input
-        type="range" min={0} max={Math.max(epochs.length - 1, 0)} step={1} value={index}
+        type="range" min={0} max={Math.max(frames.length - 1, 0)} step={1} value={index}
         onChange={e => onIndex(Number(e.target.value))} disabled={!multi}
-        className="flex-1" aria-label="Epoch"
+        className="flex-1" aria-label="Frame"
       />
-      <span className="tabular-nums">{none ? 0 : index + 1}/{epochs.length} Frame</span>
-      <span className="tabular-nums">{epoch ? new Date(epoch.date).toLocaleDateString() : '—'}</span>
+      <span className="tabular-nums">{none ? 0 : index + 1}/{frames.length} Frame</span>
+      <span className="tabular-nums">{frame ? frame.label : '—'}</span>
     </div>
   )
 }

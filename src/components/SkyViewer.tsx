@@ -4,6 +4,12 @@ import { resolveAssetUrl } from '../api/http'
 import { useImageSize } from '../hooks/useImageSize'
 import { anomalyColorClass } from '../lib/anomalies'
 
+/** Where the target is EXPECTED to be (from its proper motion), drawn as dashed rings and an arrow. */
+export interface MotionMarks {
+  points: { x: number; y: number; color: string; label: string }[]
+  arrow?: { from: { x: number; y: number }; to: { x: number; y: number } }
+}
+
 /** A community report drawn on the image (continuous pixel position, class colour). */
 export interface CommunityMarker {
   id: string
@@ -28,6 +34,8 @@ interface Props {
   communityMarkers?: CommunityMarker[]
   highlightedCommunityId?: string | null
   onCommunitySelect?: (reportId: string) => void
+  /** Expected position(s) of the target, to guide the eye towards a faint dipole. */
+  motion?: MotionMarks | null
 }
 
 /**
@@ -35,7 +43,7 @@ interface Props {
  * so any image size works and markers use pixel_x/pixel_y directly
  * (0-based, origin top-left, measured on the served image).
  */
-export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = null, onSelect, onProbe, probe = null, communityMarkers = [], highlightedCommunityId = null, onCommunitySelect }: Props) {
+export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = null, onSelect, onProbe, probe = null, communityMarkers = [], highlightedCommunityId = null, onCommunitySelect, motion = null }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const src = resolveAssetUrl(imageUrl)
   const size = useImageSize(src)
@@ -137,6 +145,44 @@ export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = 
           </g>
         )
       })}
+      {motion && (
+        <g pointerEvents="none" fill="none" aria-hidden="true">
+          {motion.arrow && (() => {
+            const { from, to } = motion.arrow
+            const len = Math.hypot(to.x - from.x, to.y - from.y)
+            if (len < radius * 0.5) return null // no visible motion: just the ring
+            const ux = (to.x - from.x) / len
+            const uy = (to.y - from.y) / len
+            const head = Math.min(radius * 0.9, len * 0.5)
+            const bx = to.x - ux * head
+            const by = to.y - uy * head
+            return (
+              <>
+                <line x1={from.x} y1={from.y} x2={bx} y2={by} stroke="#e2e8f0" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                <path
+                  d={`M${to.x} ${to.y}L${bx - uy * head * 0.5} ${by + ux * head * 0.5}L${bx + uy * head * 0.5} ${by - ux * head * 0.5}Z`}
+                  fill="#e2e8f0"
+                  stroke="none"
+                />
+              </>
+            )
+          })()}
+          {motion.points.map(p => (
+            <circle
+              key={p.label}
+              cx={p.x}
+              cy={p.y}
+              r={radius * 0.85}
+              stroke={p.color}
+              strokeWidth={1.75}
+              strokeDasharray="4 3"
+              vectorEffect="non-scaling-stroke"
+            >
+              <title>{p.label}</title>
+            </circle>
+          ))}
+        </g>
+      )}
       {probe && (
         <g pointerEvents="none" className="stroke-sky-300" fill="none" strokeWidth={1.5} vectorEffect="non-scaling-stroke">
           <circle cx={probe.x} cy={probe.y} r={radius * 0.7} vectorEffect="non-scaling-stroke" />

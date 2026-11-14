@@ -66,14 +66,33 @@ export interface Anomaly {
   spectrum_102_bands: SpectrumPoint[]
 }
 
+/** Difference between two CONSECUTIVE visits (later - earlier). Image and metadata only: the anomaly detector does not run on pairs. */
+export interface PairwiseDifference {
+  kind: 'consecutive'
+  epoch_a: string // later visit: subtracted = epoch_a - epoch_b
+  epoch_b: string // earlier visit
+  image_format: ImageFormat
+  subtracted_image_url: string
+  delta_t_days: number
+  detectors_used: number[]
+  expected_shift_arcsec?: number | null // catalogue proper motion x delta_t
+  weak_signal: boolean // expected shift below one SPHEREx pixel (6.15"): any dipole will be faint
+}
+
 export interface DifferenceImaging {
   epoch_a: string // subtracted = epoch_a - epoch_b
   epoch_b: string
   image_format: ImageFormat
-  subtracted_image_url: string
+  subtracted_image_url: string // first vs last visit: the anomaly detector runs on this one
   detected_anomalies: Anomaly[]
   detection_label?: string | null // "Detección Asistida por Software (BETA)"
   detection_notice?: string | null // "...requiere verificación humana"
+  kind?: 'first_vs_last'
+  delta_t_days?: number | null
+  detectors_used?: number[] | null
+  expected_shift_arcsec?: number | null
+  weak_signal?: boolean | null
+  pairwise?: PairwiseDifference[] // consecutive-visit differences; empty with fewer than 3 visits
 }
 
 export interface LightCurvePoint {

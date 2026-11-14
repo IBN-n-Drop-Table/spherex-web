@@ -24,9 +24,17 @@ export interface SkyPatchState {
 function describeError(e: unknown): string {
   if (e instanceof JobFailedError) return e.message
   if (e instanceof ApiError) {
-    if (e.status === 404) return 'No SPHEREx data is available at these coordinates.'
-    if (e.status === 422) return 'The backend rejected the query (check the coordinates and the field of view, 1 to 30 arcmin).'
-    if (e.status === 503) return 'The backend is busy. Try again in a moment.'
+    const { status, detail } = e.problem
+    // The backend's own message is the accurate one (e.g. a job that expired, a bad coordinate).
+    if (status === 404) return detail ?? 'No SPHEREx data is available at these coordinates.'
+    if (status === 422) {
+      return detail
+        ? `The backend rejected the query: ${detail}`
+        : 'The backend rejected the query (check the coordinates and the field of view, 1 to 30 arcmin).'
+    }
+    if (status === 503) return 'The backend is busy. Try again in a moment.'
+    if (status >= 500) return 'The server had a problem. Try again in a moment.'
+    if (detail) return detail
   }
   return String(e)
 }

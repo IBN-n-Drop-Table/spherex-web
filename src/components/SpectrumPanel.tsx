@@ -66,7 +66,7 @@ export default function SpectrumPanel({ view, onShowTarget, onClose }: Props) {
   const busy = Boolean(view.loading)
 
   return (
-    <div className="absolute right-3 top-52 z-10 w-[26rem] max-w-[calc(100vw-1.5rem)] rounded bg-black/80 p-3 text-xs backdrop-blur">
+    <div className="absolute right-3 top-60 z-10 w-[26rem] max-w-[calc(100vw-1.5rem)] rounded bg-black/80 p-3 text-xs backdrop-blur">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-sm font-medium text-slate-100">{view.title}</div>
