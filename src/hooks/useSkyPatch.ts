@@ -1,21 +1,10 @@
 import { useEffect, useState } from 'react'
 import { createSkyPatchJob, getJob } from '../api/spherex'
 import { ApiError } from '../api/http'
+import { awaitJob, JobFailedError, type JobProgress } from '../lib/jobs'
 import type { SkyPatchResponse, SkyQuery } from '../types/api'
 
-const DEFAULT_POLL_MS = 1500
-// Cold live jobs take 40-100 s (measured by the backend); leave generous headroom.
-const JOB_TIMEOUT_MS = 5 * 60_000
-
-/** A job that ended with `status: failed` (the message is already readable). */
-class JobFailedError extends Error {}
-
-export interface JobProgress {
-  stage: string | null // queued | query | download | stack | render | done
-  progress: number // 0..1
-  message: string | null
-  etaSeconds: number | null
-}
+export type { JobProgress } from '../lib/jobs'
 
 interface Settled {
   key: string
@@ -42,21 +31,6 @@ function describeError(e: unknown): string {
   return String(e)
 }
 
-/** Resolves after `ms`, or rejects when `signal` aborts. */
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms)
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        reject(signal.reason)
-      },
-      { once: true },
-    )
-  })
-}
-
 export function useSkyPatch(q: SkyQuery | null): SkyPatchState {
   const { ra, dec, fov } = q ?? {}
   const key = ra === undefined || dec === undefined || fov === undefined ? null : `${ra}|${dec}|${fov}`
@@ -66,25 +40,12 @@ export function useSkyPatch(q: SkyQuery | null): SkyPatchState {
   useEffect(() => {
     if (key === null) return
     const ctrl = new AbortController()
-    const deadline = Date.now() + JOB_TIMEOUT_MS
-
     const run = async (): Promise<SkyPatchResponse> => {
-      let current = await createSkyPatchJob({ ra, dec, fov }, ctrl.signal)
-      for (;;) {
-        if (current.status === 'completed' && current.result) return current.result
-        if (current.status === 'failed') {
-          throw new JobFailedError(current.error ?? 'The SPHEREx job failed.')
-        }
-        setJob({
-          stage: current.stage ?? null,
-          progress: current.progress ?? 0,
-          message: current.message ?? null,
-          etaSeconds: current.eta_s ?? null,
-        })
-        if (Date.now() > deadline) throw new Error('Timed out waiting for the SPHEREx job.')
-        await sleep(current.retry_after_ms ?? DEFAULT_POLL_MS, ctrl.signal)
-        current = await getJob(current.job_id, ctrl.signal)
-      }
+      const first = await createSkyPatchJob({ ra, dec, fov }, ctrl.signal)
+      return awaitJob<SkyPatchResponse>(first, id => getJob(id, ctrl.signal), {
+        signal: ctrl.signal,
+        onProgress: setJob,
+      })
     }
 
     run()

@@ -1,7 +1,8 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
-import type { AladinInstance } from 'aladin-lite'
+import type { AladinInstance, Catalog } from 'aladin-lite'
 import { HIDDEN_UI, SKY_SURVEY } from '../lib/sky'
-import { addTargetMarkers } from '../lib/markers'
+import { addCommunityMarkers, addTargetMarkers } from '../lib/markers'
+import type { CitizenReport } from '../types/api'
 
 export interface SkyView {
   ra: number // degrees
@@ -27,6 +28,11 @@ interface Props extends SkyView {
   onViewChange: (view: SkyView) => void
   /** Called on every pan/zoom (and once at start), unthrottled by our debounce. */
   onFootprintChange?: (footprint: SkyFootprint) => void
+  /** Community reports to draw as markers (pass [] to hide them). */
+  communityReports?: CitizenReport[]
+  highlightedReportId?: string | null
+  /** A community marker was clicked. */
+  onCommunityClick?: (reportId: string) => void
 }
 
 // Stereographic fills the screen like a planetarium dome (looking OUT from inside the sky),
@@ -79,16 +85,30 @@ function computeFootprint(aladin: AladinInstance): SkyFootprint {
   return { center: aladin.getRaDec(), fov: aladin.getFov(), polygon }
 }
 
-export default function SkyMap({ ra, dec, fov, ref, onViewChange, onFootprintChange }: Props) {
+const NO_REPORTS: CitizenReport[] = []
+
+export default function SkyMap({
+  ra,
+  dec,
+  fov,
+  ref,
+  onViewChange,
+  onFootprintChange,
+  communityReports = NO_REPORTS,
+  highlightedReportId = null,
+  onCommunityClick,
+}: Props) {
   const divRef = useRef<HTMLDivElement>(null)
   const aladinRef = useRef<AladinInstance | null>(null)
   const ignoreUntil = useRef(0)
-  const latest = useRef({ ra, dec, fov, onViewChange, onFootprintChange })
+  const libRef = useRef<(typeof import('aladin-lite'))['default'] | null>(null)
+  const communityCatalogs = useRef<Catalog[]>([])
+  const latest = useRef({ ra, dec, fov, onViewChange, onFootprintChange, onCommunityClick })
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    latest.current = { ra, dec, fov, onViewChange, onFootprintChange }
+    latest.current = { ra, dec, fov, onViewChange, onFootprintChange, onCommunityClick }
   })
 
   useImperativeHandle(ref, () => ({
@@ -120,6 +140,7 @@ export default function SkyMap({ ra, dec, fov, ref, onViewChange, onFootprintCha
           fov: Math.min(start.fov, MAX_FOV_ARCMIN) / 60,
         })
         aladinRef.current = aladin
+        libRef.current = A
         addTargetMarkers(A, aladin, { size: 14, labels: true })
 
         // Aladin has no destroy(): after unmount the old instance keeps firing events (its container
@@ -147,6 +168,11 @@ export default function SkyMap({ ra, dec, fov, ref, onViewChange, onFootprintCha
           emitFootprint()
           report()
         })
+        // A click on a community marker (the sources carry their report id in `data`).
+        aladin.on('objectClicked', source => {
+          const id = source?.data?.reportId
+          if (!cancelled && typeof id === 'string') latest.current.onCommunityClick?.(id)
+        })
         emitFootprint()
         setReady(true)
       })
@@ -158,6 +184,8 @@ export default function SkyMap({ ra, dec, fov, ref, onViewChange, onFootprintCha
       cancelled = true
       clearTimeout(timer)
       aladinRef.current = null
+      libRef.current = null
+      communityCatalogs.current = []
       el.innerHTML = '' // Aladin has no destroy(); remove what it created
     }
   }, [])
@@ -180,6 +208,15 @@ export default function SkyMap({ ra, dec, fov, ref, onViewChange, onFootprintCha
     }
     if (moved) ignoreUntil.current = Date.now() + PROGRAMMATIC_MOVE_MS
   }, [ready, ra, dec, fov])
+
+  // Community markers: replace the previous set whenever the reports (or the selection) change.
+  useEffect(() => {
+    const A = libRef.current
+    const aladin = aladinRef.current
+    if (!A || !aladin) return
+    for (const c of communityCatalogs.current) aladin.remove(c)
+    communityCatalogs.current = addCommunityMarkers(A, aladin, communityReports, highlightedReportId)
+  }, [ready, communityReports, highlightedReportId])
 
   return (
     <>

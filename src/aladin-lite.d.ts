@@ -18,6 +18,13 @@ declare module 'aladin-lite' {
     addSources(sources: unknown[]): void
   }
 
+  /** What Aladin hands to `objectClicked`: the source (with the `data` we attached) that was hit. */
+  export interface ClickedSource {
+    ra: number
+    dec: number
+    data?: Record<string, unknown>
+  }
+
   export interface AladinInstance {
     getRaDec(): [number, number] // ICRS degrees, RA in [0, 360)
     getFov(): [number, number] // [width, height] in degrees
@@ -30,8 +37,12 @@ declare module 'aladin-lite' {
     world2pix(ra: number, dec: number, frame?: string): [number, number] | undefined
     addOverlay(overlay: GraphicOverlay): void
     addCatalog(catalog: Catalog): void
+    /** Removes a catalog / overlay added with addCatalog / addOverlay. */
+    remove(layer: unknown): void
     // NOTE: Aladin keeps ONE callback per event name; a second `on` replaces the first.
     on(event: 'positionChanged' | 'zoomChanged', callback: (arg?: unknown) => void): void
+    /** `null` when the click hit nothing (it also fires to clear a previous selection). */
+    on(event: 'objectClicked', callback: (source: ClickedSource | null) => void): void
   }
 
   const A: {

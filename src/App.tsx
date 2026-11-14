@@ -2,6 +2,9 @@ import { useRef, useState } from 'react'
 import { DEFAULT_STATE, useUrlState } from './hooks/useUrlState'
 import SkyMap, { type SkyFootprint, type SkyMapHandle } from './components/SkyMap'
 import MiniMap from './components/MiniMap'
+import SkyCommunity from './components/SkyCommunity'
+import { useReports } from './hooks/useReports'
+import type { CitizenReport } from './types/api'
 import SphereXView from './components/SphereXView'
 import CoordinatesPanel from './components/CoordinatesPanel'
 import TargetPicker from './components/TargetPicker'
@@ -13,10 +16,25 @@ import Credits from './components/Credits'
  *  - sky map: Aladin only, with the editable coordinates / FOV. No backend calls.
  *  - SPHEREx data: asks the backend for the coordinates the user was looking at.
  */
+const NO_REPORTS: CitizenReport[] = []
+
 export default function App() {
   const [{ ra, dec, fov, band: layer, view }, setUrl] = useUrlState()
   const mapRef = useRef<SkyMapHandle>(null)
   const [footprint, setFootprint] = useState<SkyFootprint | null>(null)
+
+  // Community discoveries on the sky map: the list, and (optionally) their markers on the map.
+  const [communityOpen, setCommunityOpen] = useState(false)
+  const [showCommunityMarkers, setShowCommunityMarkers] = useState(false)
+  const [highlightReport, setHighlightReport] = useState<string | null>(null)
+  const feed = useReports(null, { enabled: view === 'sky' && communityOpen, limit: 100 })
+  const markerReports = communityOpen && showCommunityMarkers ? feed.reports : NO_REPORTS
+
+  // From a list item or a marker: show that position on the map; "View SPHEREx data here" does the rest.
+  const goToReport = (r: CitizenReport) => {
+    setHighlightReport(r.id)
+    setUrl({ ra: r.ra_deg, dec: r.dec_deg, fov: TARGET_FOV_ARCMIN })
+  }
 
   const openData = () => {
     // Read the live map position so a click right after a pan/zoom doesn't use a stale URL.
@@ -35,6 +53,12 @@ export default function App() {
             fov={fov}
             onViewChange={v => setUrl(v, { replace: true })}
             onFootprintChange={setFootprint}
+            communityReports={markerReports}
+            highlightedReportId={highlightReport}
+            onCommunityClick={id => {
+              const r = feed.reports.find(x => x.id === id)
+              if (r) goToReport(r)
+            }}
           />
           <MiniMap
             footprint={footprint}
@@ -53,6 +77,15 @@ export default function App() {
             />
             <TargetPicker
               onSelect={t => setUrl({ ...targetPosition(t), fov: TARGET_FOV_ARCMIN })}
+            />
+            <SkyCommunity
+              open={communityOpen}
+              onToggle={() => setCommunityOpen(o => !o)}
+              feed={feed}
+              showMarkers={showCommunityMarkers}
+              onShowMarkersChange={setShowCommunityMarkers}
+              highlightId={highlightReport}
+              onLocate={goToReport}
             />
           </div>
           <button

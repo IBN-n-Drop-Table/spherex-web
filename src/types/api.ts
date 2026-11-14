@@ -99,6 +99,22 @@ export interface SkyPatchResponse {
   fallback_message?: string | null
 }
 
+/** GET /api/v1/spectrum: a target's, an anomaly's, or any position's spectrum. */
+export interface SpectrumResponse {
+  source: 'target' | 'anomaly'
+  target_name: string | null // "RA 133.7275 Dec -7.2480" for a live position
+  anomaly_id?: string | null
+  ra_deg: number // where the spectrum was measured
+  dec_deg: number
+  epoch_id: string
+  is_cached_golden_path: boolean // false: computed live from IRSA
+  spectrum_102_bands: SpectrumPoint[] // live positions give ~1 channel per detector
+  saturated?: boolean | null
+  spectrum_message?: string | null
+  fallback: boolean // IRSA failed: this is the cached TARGET spectrum, not the clicked point's
+  fallback_message?: string | null
+}
+
 export interface SkyQuery {
   ra?: number // degrees
   dec?: number // degrees
@@ -113,7 +129,7 @@ export interface JobResponse {
   job_id: string
   kind: 'sky_patch' | 'spectrum'
   status: JobStatus
-  result?: SkyPatchResponse | null // set when completed (sky_patch jobs)
+  result?: SkyPatchResponse | SpectrumResponse | null // set when completed (by `kind`)
   error?: string | null // set when failed
   created_at: string
   updated_at: string
@@ -122,4 +138,40 @@ export interface JobResponse {
   message?: string | null // human-readable, in Spanish
   eta_s?: number | null
   retry_after_ms?: number | null // suggested polling interval
+}
+
+// ---- Citizen reports: GET/POST /api/v1/reports, POST /api/v1/reports/{id}/verify ----
+
+export type Classification =
+  | 'asteroid'
+  | 'brown_dwarf'
+  | 'high_proper_motion_star'
+  | 'variable_star'
+  | 'transient_anomaly'
+  | 'other'
+
+/** Body of POST /reports. The backend rejects unknown fields, so send only these. */
+export interface CitizenReportCreate {
+  discoverer: string // 1-50 chars
+  notes?: string // up to 1000 chars
+  ra_deg: number
+  dec_deg: number
+  target_name?: string
+  pixel_x?: number // must come together with pixel_y
+  pixel_y?: number
+  classification: Classification
+  anomaly_id?: string
+  snapshot_url?: string
+}
+
+export interface CitizenReport extends Omit<CitizenReportCreate, 'notes' | 'target_name' | 'pixel_x' | 'pixel_y' | 'anomaly_id' | 'snapshot_url'> {
+  id: string
+  created_at: string
+  verifications_count: number // includes the discoverer's own report
+  notes?: string | null
+  target_name?: string | null
+  pixel_x?: number | null
+  pixel_y?: number | null
+  anomaly_id?: string | null
+  snapshot_url?: string | null
 }

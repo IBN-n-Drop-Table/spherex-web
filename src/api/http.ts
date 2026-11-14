@@ -39,6 +39,26 @@ export async function getJson<T>(
   return (await res.json()) as T
 }
 
+/** Like getJson, but keeps the status: /spectrum answers 200 (ready) or 202 (a job to poll). */
+export async function getJsonWithStatus<T>(
+  path: string,
+  params: Params = {},
+  opts: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<{ status: number; data: T }> {
+  const timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS
+  const timeout = AbortSignal.timeout(timeoutMs)
+  const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout
+  let res: Response
+  try {
+    res = await fetch(buildUrl(path, params), { signal })
+  } catch (e) {
+    if (timeout.aborted) throw new TimeoutError(`Sin respuesta del servidor en ${timeoutMs} ms`)
+    throw e
+  }
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return { status: res.status, data: (await res.json()) as T }
+}
+
 export async function postJson<T>(
   path: string,
   body: unknown,
