@@ -55,7 +55,7 @@ export default function CoordinatesPanel({ value, loading, onSubmit }: Props) {
   return (
     <form
       onSubmit={e => { e.preventDefault(); submit() }}
-      className="absolute left-3 top-3 z-10 space-y-1 rounded bg-black/70 p-3 font-mono text-xs text-slate-100 backdrop-blur"
+      className="space-y-1 rounded bg-black/70 p-3 font-mono text-xs text-slate-100 backdrop-blur"
     >
       {FIELDS.map(({ key, label, unit }) => (
         <label key={key} className="flex items-center gap-2">

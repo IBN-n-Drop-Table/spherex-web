@@ -39,5 +39,30 @@ export async function getJson<T>(
   return (await res.json()) as T
 }
 
+export async function postJson<T>(
+  path: string,
+  body: unknown,
+  opts: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<T> {
+  const timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS
+  const timeout = AbortSignal.timeout(timeoutMs)
+  const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout
+
+  let res: Response
+  try {
+    res = await fetch(buildUrl(path), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    })
+  } catch (e) {
+    if (timeout.aborted) throw new TimeoutError(`Sin respuesta del servidor en ${timeoutMs} ms`)
+    throw e
+  }
+  if (!res.ok) throw new ApiError(res.status, await res.text()) // 2xx incl. 202 are fine
+  return (await res.json()) as T
+}
+
 // Allow relative image URLs ("/static/x.png")
 export const resolveAssetUrl = (url: string): string => buildUrl(url).toString()

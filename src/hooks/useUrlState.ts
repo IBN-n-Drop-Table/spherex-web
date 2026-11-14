@@ -7,10 +7,11 @@ export interface UrlState {
   dec: number // degrees
   fov: number // arcmin
   band: string // LAYER_BASE | LAYER_DIFF | chemical filter name
+  view: 'sky' | 'data' // 'sky' = Aladin map only; 'data' = SPHEREx data for these coordinates
 }
 
 // Default view: WISE 0855
-export const DEFAULT_STATE: UrlState = { ra: 133.795129, dec: -7.245147, fov: 5, band: LAYER_BASE }
+export const DEFAULT_STATE: UrlState = { ra: 133.795129, dec: -7.245147, fov: 5, band: LAYER_BASE, view: 'sky' }
 
 const EVENT = 'urlstatechange'
 
@@ -34,12 +35,13 @@ function parse(search: string): UrlState {
     dec: dec >= -90 && dec <= 90 ? dec : DEFAULT_STATE.dec,
     fov: fov > 0 ? fov : DEFAULT_STATE.fov,
     band: p.get('band') || DEFAULT_STATE.band,
+    view: p.get('view') === 'data' ? 'data' : 'sky',
   }
 }
 
 /**
  * Single source of truth for the view: ra, dec, fov, band live in the URL
- * (?ra=08h55m10s&dec=-7d14m42s&fov=5&band=H2O), so links are shareable and Back works.
+ * (?ra=08h55m10s&dec=-7d14m42s&fov=5&band=H2O&view=data), so links are shareable and Back works.
  * Invalid or missing params fall back to defaults. Writes always use decimal degrees.
  */
 export function useUrlState() {
@@ -54,6 +56,8 @@ export function useUrlState() {
     params.set('fov', fmt(next.fov))
     if (next.band === LAYER_BASE) params.delete('band')
     else params.set('band', next.band)
+    if (next.view === 'data') params.set('view', 'data')
+    else params.delete('view')
     const url = `${window.location.pathname}?${params}${window.location.hash}`
     if (url === `${window.location.pathname}${window.location.search}${window.location.hash}`) return
     window.history[opts.replace ? 'replaceState' : 'pushState'](null, '', url)

@@ -1,7 +1,7 @@
 import type { Anomaly } from '../types/api'
 import { resolveAssetUrl } from '../api/http'
-
-const IMAGE_SIZE_PX = 1024
+import { useImageSize } from '../hooks/useImageSize'
+import { anomalyColorClass } from '../lib/anomalies'
 
 interface Props {
   imageUrl: string
@@ -10,26 +10,42 @@ interface Props {
 }
 
 /**
- * Single entry point for showing the sky. Today: <img> + pixel overlay.
- * Later: swap internals for Aladin Lite v3 (use ra_deg/dec_deg instead of pixels).
+ * Shows one SPHEREx image full-screen. The SVG's coordinate system IS the image's pixel grid,
+ * so any image size works and markers use pixel_x/pixel_y directly
+ * (0-based, origin top-left, measured on the served image).
  */
 export default function SkyViewer({ imageUrl, alt, anomalies = [] }: Props) {
+  const src = resolveAssetUrl(imageUrl)
+  const size = useImageSize(src)
+  if (!size) return null // first frame still loading
+
+  const { width, height } = size
+  const radius = Math.max(width, height) / 70
+
   return (
-    <div className="relative h-full w-full overflow-hidden bg-black">
-      <img src={resolveAssetUrl(imageUrl)} alt={alt} className="h-full w-full object-contain" />
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label={alt}
+      className="absolute inset-0 h-full w-full"
+    >
+      <image href={src} width={width} height={height} />
       {anomalies.map(a => (
-        <span
+        <circle
           key={a.anomaly_id}
-          title={`${a.anomaly_id} · SNR ${a.snr_confidence}`}
-          className={`absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${
-            a.is_clean_detection ? 'border-emerald-400' : 'border-amber-400'
-          }`}
-          style={{
-            left: `${(a.pixel_x / IMAGE_SIZE_PX) * 100}%`,
-            top: `${(a.pixel_y / IMAGE_SIZE_PX) * 100}%`,
-          }}
-        />
+          // +0.5: pixel_x/pixel_y index a pixel, its centre is half a pixel in
+          cx={a.pixel_x + 0.5}
+          cy={a.pixel_y + 0.5}
+          r={radius}
+          fill="none"
+          strokeWidth={2}
+          vectorEffect="non-scaling-stroke"
+          className={anomalyColorClass(a)}
+        >
+          <title>{`${a.anomaly_id}${a.kind ? ` · ${a.kind}` : ''} · SNR ${a.snr_confidence}`}</title>
+        </circle>
       ))}
-    </div>
+    </svg>
   )
 }

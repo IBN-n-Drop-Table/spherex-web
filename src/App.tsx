@@ -1,75 +1,82 @@
-import { useState } from 'react'
-import { useSkyPatch } from './hooks/useSkyPatch'
-import { useAutoplay } from './hooks/useAutoplay'
-import { useUrlState } from './hooks/useUrlState'
-import { LAYER_DIFF } from './lib/layers'
-import SkyViewer from './components/SkyViewer'
+import { useRef, useState } from 'react'
+import { DEFAULT_STATE, useUrlState } from './hooks/useUrlState'
+import SkyMap, { type SkyFootprint, type SkyMapHandle } from './components/SkyMap'
+import MiniMap from './components/MiniMap'
+import SphereXView from './components/SphereXView'
 import CoordinatesPanel from './components/CoordinatesPanel'
-import TimelineBar from './components/TimelineBar'
-import LayerSwitcher from './components/LayerSwitcher'
+import TargetPicker from './components/TargetPicker'
+import { TARGET_FOV_ARCMIN, targetPosition } from './data/targets'
+import Credits from './components/Credits'
 
-const FPS_OPTIONS = [1, 2, 4, 12, 24]
-
+/**
+ * Two views, switched with a button (and the URL: ?view=data):
+ *  - sky map: Aladin only, with the editable coordinates / FOV. No backend calls.
+ *  - SPHEREx data: asks the backend for the coordinates the user was looking at.
+ */
 export default function App() {
-  const [{ ra, dec, fov, band: layer }, setUrl] = useUrlState()
-  const { data, loading, error } = useSkyPatch({ ra, dec, fov })
-  const [fpsIdx, setFpsIdx] = useState(1)
-  const fps = FPS_OPTIONS[fpsIdx]
-  const player = useAutoplay(data?.timelapse_epochs.length ?? 0, fps)
+  const [{ ra, dec, fov, band: layer, view }, setUrl] = useUrlState()
+  const mapRef = useRef<SkyMapHandle>(null)
+  const [footprint, setFootprint] = useState<SkyFootprint | null>(null)
 
-  const epoch = data?.timelapse_epochs[player.index]
-  const imageUrl =
-    data && epoch
-      ? layer === LAYER_DIFF
-        ? data.difference_imaging.subtracted_image_url
-        : (epoch.chemical_filters[layer] ?? epoch.image_url)
-      : null
+  const openData = () => {
+    // Read the live map position so a click right after a pan/zoom doesn't use a stale URL.
+    const live = mapRef.current?.getView()
+    setUrl({ ...(live ?? {}), view: 'data' })
+  }
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-black text-slate-100">
-      {/* Full-screen sky (Aladin Lite goes here later). Old data stays while a new query loads. */}
-      {data && epoch && imageUrl && (
-        <SkyViewer
-          imageUrl={imageUrl}
-          alt={`${data.target_info.name} ${epoch.epoch_id} ${layer}`}
-          anomalies={layer === LAYER_DIFF ? data.difference_imaging.detected_anomalies : []}
+      {view === 'sky' ? (
+        <>
+          <SkyMap
+            ref={mapRef}
+            ra={ra}
+            dec={dec}
+            fov={fov}
+            onViewChange={v => setUrl(v, { replace: true })}
+            onFootprintChange={setFootprint}
+          />
+          <MiniMap
+            footprint={footprint}
+            onPick={(r, d, phase, target) =>
+              // Pressing a target marker = the same as choosing it in the drop-down.
+              target
+                ? setUrl({ ...targetPosition(target), fov: TARGET_FOV_ARCMIN })
+                : setUrl({ ra: r, dec: d }, { replace: phase === 'move' })
+            }
+          />
+          <div className="absolute left-3 top-3 z-10 flex w-fit flex-col gap-2">
+            <TargetPicker
+              onSelect={t => setUrl({ ...targetPosition(t), fov: TARGET_FOV_ARCMIN })}
+            />
+            <CoordinatesPanel
+              key={`${ra}|${dec}|${fov}`}
+              value={{ ra, dec, fov }}
+              onSubmit={c => setUrl(c)}
+            />
+          </div>
+          <button
+            onClick={openData}
+            className="absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-sky-600 px-4 py-2 text-sm font-medium shadow hover:bg-sky-500"
+          >
+            View SPHEREx data here →
+          </button>
+        </>
+      ) : (
+        <SphereXView
+          ra={ra}
+          dec={dec}
+          fov={fov}
+          layer={layer}
+          onLayerChange={band => setUrl({ band }, { replace: true })}
+          onBack={() => setUrl({ view: 'sky' })}
+          onTryDefault={() =>
+            setUrl({ ra: DEFAULT_STATE.ra, dec: DEFAULT_STATE.dec, fov: DEFAULT_STATE.fov })
+          }
         />
       )}
 
-      {/* Overlays: always rendered so a bad query can be corrected */}
-      <CoordinatesPanel
-        key={`${ra}|${dec}|${fov}`}
-        value={{ ra, dec, fov }}
-        loading={loading}
-        onSubmit={c => setUrl(c)}
-      />
-
-      {error && (
-        <p className="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded bg-red-900/80 px-4 py-2 text-sm">
-          {error}
-        </p>
-      )}
-
-      {data && epoch && (
-        <>
-          <LayerSwitcher
-            filters={Object.keys(epoch.chemical_filters)}
-            layer={layer}
-            onChange={band => setUrl({ band }, { replace: true })}
-          />
-          <TimelineBar
-            epochs={data.timelapse_epochs}
-            index={player.index}
-            playing={player.playing}
-            fps={fps}
-            onIndex={player.setIndex}
-            onToggle={player.toggle}
-            onPrev={player.prev}
-            onNext={player.next}
-            onFpsClick={() => setFpsIdx(i => (i + 1) % FPS_OPTIONS.length)}
-          />
-        </>
-      )}
+      <Credits raised={view === 'data'} />
     </main>
   )
 }
