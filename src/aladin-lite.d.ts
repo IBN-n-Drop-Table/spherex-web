@@ -31,6 +31,9 @@ declare module 'aladin-lite' {
     getSize(): [number, number] // [width, height] in CSS pixels
     gotoRaDec(ra: number, dec: number): void
     setFoV(fovDeg: number): void
+    /** View rotation in degrees (the user can rotate the map; it is not part of getRaDec / getFov). */
+    getRotation(): number
+    setRotation(deg: number): void
     /** Screen pixel -> sky. May throw / return NaN outside the projection (e.g. beyond the AIT ellipse). */
     pix2world(x: number, y: number, frame?: string): [number, number]
     /** Sky -> screen pixel. May be undefined when the point is not visible in this projection. */

@@ -3,6 +3,10 @@
 // mirror directly. Needs network.
 export const SKY_SURVEY = 'https://irsa.ipac.caltech.edu/data/hips/CDS/AllWISE/RGB-W4-W2-W1'
 
+// Visible-light all-sky (DSS2 colour, photographic plates), same IRSA mirror: the "what your eye
+// sees" side of the visible / infrared comparison.
+export const VISIBLE_SURVEY = 'https://irsa.ipac.caltech.edu/data/hips/CDS/DSS2/color'
+
 /** Aladin's own panels, all off: our UI provides coordinates, zoom and layers. */
 export const HIDDEN_UI = {
   showZoomControl: false,

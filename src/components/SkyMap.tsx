@@ -3,6 +3,9 @@ import type { AladinInstance, Catalog } from 'aladin-lite'
 import { HIDDEN_UI, SKY_SURVEY } from '../lib/sky'
 import { addCommunityMarkers, addTargetMarkers } from '../lib/markers'
 import type { CitizenReport } from '../types/api'
+import SkyWipe from './SkyWipe'
+
+type AladinLib = (typeof import('aladin-lite'))['default']
 
 export interface SkyView {
   ra: number // degrees
@@ -33,6 +36,8 @@ interface Props extends SkyView {
   highlightedReportId?: string | null
   /** A community marker was clicked. */
   onCommunityClick?: (reportId: string) => void
+  /** Show the visible-light / infrared comparison bar. */
+  wipe?: boolean
 }
 
 // Stereographic fills the screen like a planetarium dome (looking OUT from inside the sky),
@@ -97,6 +102,7 @@ export default function SkyMap({
   communityReports = NO_REPORTS,
   highlightedReportId = null,
   onCommunityClick,
+  wipe = false,
 }: Props) {
   const divRef = useRef<HTMLDivElement>(null)
   const aladinRef = useRef<AladinInstance | null>(null)
@@ -105,6 +111,9 @@ export default function SkyMap({
   const communityCatalogs = useRef<Catalog[]>([])
   const latest = useRef({ ra, dec, fov, onViewChange, onFootprintChange, onCommunityClick })
   const [ready, setReady] = useState(false)
+  const [wipeLib, setWipeLib] = useState<{ A: AladinLib; aladin: AladinInstance } | null>(null)
+  const [wipeEverOn, setWipeEverOn] = useState(false)
+  if (wipe && !wipeEverOn) setWipeEverOn(true) // build the second map only when first needed
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -174,6 +183,7 @@ export default function SkyMap({
           if (!cancelled && typeof id === 'string') latest.current.onCommunityClick?.(id)
         })
         emitFootprint()
+        setWipeLib({ A, aladin })
         setReady(true)
       })
       .catch(e => {
@@ -224,6 +234,7 @@ export default function SkyMap({
       <div className="absolute inset-0 z-0">
         <div ref={divRef} className="h-full w-full" />
       </div>
+      {wipeEverOn && wipeLib && <SkyWipe A={wipeLib.A} main={wipeLib.aladin} enabled={wipe} />}
       {error && (
         <p className="absolute inset-x-0 top-1/2 z-0 text-center text-sm text-red-400">{error}</p>
       )}

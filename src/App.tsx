@@ -21,6 +21,7 @@ const NO_REPORTS: CitizenReport[] = []
 export default function App() {
   const [{ ra, dec, fov, band: layer, view }, setUrl] = useUrlState()
   const mapRef = useRef<SkyMapHandle>(null)
+  const [wipe, setWipe] = useState(false)
   const [footprint, setFootprint] = useState<SkyFootprint | null>(null)
 
   // Community discoveries on the sky map: the list, and (optionally) their markers on the map.
@@ -53,6 +54,7 @@ export default function App() {
             fov={fov}
             onViewChange={v => setUrl(v, { replace: true })}
             onFootprintChange={setFootprint}
+            wipe={wipe}
             communityReports={markerReports}
             highlightedReportId={highlightReport}
             onCommunityClick={id => {
@@ -75,6 +77,14 @@ export default function App() {
               value={{ ra, dec, fov }}
               onSubmit={c => setUrl(c)}
             />
+            <button
+              onClick={() => setWipe(w => !w)}
+              aria-pressed={wipe}
+              title="Slide a bar over the sky: visible light on the left, infrared on the right"
+              className={`rounded px-3 py-2 text-left text-sm shadow ${wipe ? 'bg-sky-600' : 'bg-slate-900/80 hover:bg-slate-800'}`}
+            >
+              {wipe ? 'Hide comparison' : 'Compare: eye vs infrared'}
+            </button>
             <TargetPicker
               onSelect={t => setUrl({ ...targetPosition(t), fov: TARGET_FOV_ARCMIN })}
             />
