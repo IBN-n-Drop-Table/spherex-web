@@ -1,0 +1,78 @@
+{
+  "target_info": {
+    "name": "WISE 0855",
+    "ra_deg": 133.795129,
+    "dec_deg": -7.245147,
+    "fov_arcmin": 5.0,
+    "is_cached_golden_path": true
+  },
+
+  "patch": {
+    "width_px": 600,
+    "height_px": 600,
+    "wcs": {
+      "ctype1": "RA---TAN",
+      "ctype2": "DEC--TAN",
+      "crval1": 133.795129,
+      "crval2": -7.245147,
+      "crpix1": 300.5,
+      "crpix2": 300.5,
+      "cd1_1": -0.000138888889,
+      "cd1_2": 0.0,
+      "cd2_1": 0.0,
+      "cd2_2": 0.000138888889,
+      "radesys": "ICRS",
+      "equinox": 2000.0
+    }
+  },
+
+  "timelapse_epochs": [
+    {
+      "epoch_id": "2025_M0",
+      "date": "2025-05-18T10:12:00Z",
+      "image_url": "https://dummyimage.com/600x600/000/fff&text=WISE+0855+Month+0",
+      "chemical_filters": {
+        "H2O": "https://dummyimage.com/600x600/00f/fff&text=Water",
+        "CO2": "https://dummyimage.com/600x600/f00/fff&text=CO2"
+      }
+    },
+    {
+      "epoch_id": "2025_M6",
+      "date": "2025-11-20T04:45:00Z",
+      "image_url": "https://dummyimage.com/600x600/000/fff&text=WISE+0855+Month+6",
+      "chemical_filters": {
+        "H2O": "https://dummyimage.com/600x600/00f/fff&text=Water",
+        "CO2": "https://dummyimage.com/600x600/f00/fff&text=CO2"
+      }
+    }
+  ],
+
+  "difference_imaging": {
+    "epoch_a": "2025_M6",
+    "epoch_b": "2025_M0",
+    "subtracted_image_url": "https://dummyimage.com/600x600/333/0f0&text=Subtracted+Difference",
+    "detected_anomalies": [
+      {
+        "anomaly_id": "anom_01",
+        "ra_deg": 133.793659,
+        "dec_deg": -7.243828,
+        "pixel_x": 310,
+        "pixel_y": 290,
+        "snr_confidence": 8.4,
+        "contamination_flags": ["SOURCE"],
+        "is_clean_detection": true
+      }
+    ]
+  },
+
+  "spectrum_102_bands": [
+    { "wavelength_um": 0.75, "bandwidth_um": 0.019, "flux_mjy_sr": 0.12, "variance": 0.01, "detector": 1 },
+    { "wavelength_um": 0.77, "bandwidth_um": 0.019, "flux_mjy_sr": 0.15, "variance": 0.01, "detector": 1 },
+    { "wavelength_um": 4.50, "bandwidth_um": 0.035, "flux_mjy_sr": 4.85, "variance": 0.05, "detector": 6 }
+  ],
+
+  "light_curve": [
+    { "epoch_id": "2025_M0", "date": "2025-05-18", "flux_mjy_sr": 2.1, "variance": 0.05 },
+    { "epoch_id": "2025_M6", "date": "2025-11-20", "flux_mjy_sr": 4.5, "variance": 0.12 }
+  ]
+}
