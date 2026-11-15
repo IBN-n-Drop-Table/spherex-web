@@ -76,8 +76,8 @@ function layerName(l: string): ReactNode {
 /** Progress card for a live job (cold jobs take tens of seconds up to a few minutes). */
 function JobCard({ job }: { job: JobProgress | null }) {
   return (
-    <div className="absolute left-1/2 top-1/2 z-10 w-[22rem] max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 border border-rule-strong bg-surface p-4">
-      <JobProgressBar job={job} fallbackText="Loading SPHEREx data…" />
+    <div className="absolute left-1/2 top-1/2 z-10 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 border border-rule-strong bg-surface p-5">
+      <JobProgressBar job={job} fallbackText="Loading SPHEREx data…" large />
     </div>
   )
 }

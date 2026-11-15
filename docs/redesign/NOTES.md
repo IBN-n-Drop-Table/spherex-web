@@ -1,23 +1,19 @@
 # Redesign notes
 
-Screenshots of every state are in `before/` and `after/`, with the same file names, so they can
-be compared side by side (desktop is 1280×657, phone is 390×844).
+The screenshots that went with these notes were removed; what follows is what they showed.
 
-## What was wrong (from the `before/` screenshots)
+## What was wrong with the old interface
 
-- **Sky map** (`sky-map-*.png`): six unrelated controls stacked in a floating column, each a
+- **Sky map**: six unrelated controls stacked in a floating column, each a
   translucent box. The primary action ("View SPHEREx data here") floated at the top with no
-  relation to anything. Opening a tool made the column grow past the bottom of the screen
-  (`sky-map-point-at-sky-desktop.png`: step 3 is cut off).
-- **Data view** (`data-*.png`): the object card, the tool toggles, the layer buttons, the
+  relation to anything. Opening a tool made the column grow past the bottom of the screen (step 3 of the aim panel was cut off).
+- **Data view**: the object card, the tool toggles, the layer buttons, the
   difference notice and the credits were five separate boxes in four corners. Two panels could
-  open at once and overlap the picture (`panel-spectrum-desktop.png`).
-- **Phone** (`*-mobile.png`): the layer buttons covered the object card and cut its text
-  (`data-barnard-mobile.png`); the picture was pushed to the middle with dead space under it; the
+  open at once and overlap the picture.
+- **Phone**: the layer buttons covered the object card and cut its text; the picture was pushed to the middle with dead space under it; the
   timeline wrapped ("2 / fps"); the credits sat on top of the timeline; panels covered the picture
-  completely (`panel-spectrum-mobile.png`).
+  completely.
 - **States**: a network failure showed the raw text `TypeError: Failed to fetch`
-  (`state-error-desktop.png`).
 - **Style**: default blue on slate, every surface blurred and rounded, no type scale, emoji-like
   glyphs (`⚠ ✕ ◆ ⇆`) as icons, cautions in three different amber treatments.
 - No landing page: a first visit opened a dark map with no explanation.

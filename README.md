@@ -1,4 +1,4 @@
-# SPHEREx Sky Explorer
+# Eskai
 
 A citizen-science viewer for the infrared sky, built for the NASA Space Apps challenge
 **Planet X and SPHEREx**. It takes real images from the SPHEREx space telescope and lets anyone

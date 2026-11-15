@@ -75,6 +75,6 @@ export async function renderHunterCard(result: FinishResult, when = new Date()):
   ctx.fillRect(80, HUNTER_CARD_HEIGHT - 52, HUNTER_CARD_WIDTH - 160, 1)
   ctx.fillStyle = MUTED
   ctx.font = `15px ${FONT}`
-  ctx.fillText('SPHEREx Citizen Science · Data: NASA/IPAC IRSA · A game score, not a discovery', 80, HUNTER_CARD_HEIGHT - 20)
+  ctx.fillText('Eskai · citizen science with SPHEREx data · Data: NASA/IPAC IRSA · A game score, not a discovery', 80, HUNTER_CARD_HEIGHT - 20)
   return canvas
 }

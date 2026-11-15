@@ -201,7 +201,7 @@ export async function renderShareCard(report: CitizenReport, image: CardImage | 
   ctx.fillRect(60, CARD_HEIGHT - 52, CARD_WIDTH - 120, 1)
   ctx.fillStyle = MUTED
   ctx.font = `15px ${FONT}`
-  ctx.fillText('SPHEREx Citizen Science · Data: NASA/IPAC IRSA · Unverified candidate: needs human confirmation', 60, CARD_HEIGHT - 20)
+  ctx.fillText('Eskai · citizen science with SPHEREx data · Data: NASA/IPAC IRSA · Unverified candidate: needs human confirmation', 60, CARD_HEIGHT - 20)
   ctx.textAlign = 'right'
   ctx.fillStyle = FAINT
   ctx.fillText(reportLink(report).replace(/^https?:\/\//, '').slice(0, 60), CARD_WIDTH - 60, CARD_HEIGHT - 20)

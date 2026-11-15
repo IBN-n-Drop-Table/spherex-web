@@ -4,6 +4,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import CoordinatesPanel, { type Coords } from './CoordinatesPanel'
 import { Button, Segmented } from './ui'
 import { ChevronDownIcon, ChevronUpIcon } from './icons'
+import Logo from './Logo'
 
 type View = 'sky' | 'data'
 
@@ -37,9 +38,13 @@ export default function TopBar({ view, onView, coords, onCoords, onHome, onCredi
         <button
           onClick={onHome}
           title="About this project"
-          className="flex items-baseline gap-1.5 whitespace-nowrap font-display text-lg leading-none text-paper hover:text-accent"
+          className="flex min-h-11 items-center gap-2 whitespace-nowrap font-display text-lg leading-none text-paper hover:text-accent md:min-h-0"
         >
-          SPHEREx <span className="hidden italic text-muted sm:inline">Sky Explorer</span>
+          <Logo />
+          <span className="flex items-baseline gap-1.5 leading-none">
+            <span className="text-2xl tracking-tight">Eskai</span>
+            <span className="hidden whitespace-nowrap text-base italic text-muted xl:inline">look up</span>
+          </span>
         </button>
         <Segmented
           label="View"

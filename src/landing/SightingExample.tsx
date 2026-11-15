@@ -51,7 +51,7 @@ function CardPreview() {
           </p>
         </div>
         <div className="absolute bottom-0 left-[5%] right-[5%] border-t border-rule py-[1.6%] text-faint" style={{ fontSize: cq(1.15) }}>
-          SPHEREx Citizen Science · Data: NASA/IPAC IRSA · Unverified candidate: needs human confirmation
+          Eskai · citizen science with SPHEREx data · Data: NASA/IPAC IRSA · Unverified candidate: needs human confirmation
         </div>
       </div>
     </div>

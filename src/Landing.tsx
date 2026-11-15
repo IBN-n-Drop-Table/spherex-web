@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { CreditsContent } from './components/Credits'
 import { ArrowRightIcon } from './components/icons'
+import Logo from './components/Logo'
 import { btnPrimary } from './components/classes'
 import { EXAMPLE_CHAT, LANDING_OBJECTS } from './data/landing'
 import AimDiagram from './landing/AimDiagram'
@@ -69,8 +70,12 @@ export default function Landing({ onOpen }: Props) {
     <OpenContext.Provider value={onOpen}>
     <div className="min-h-dvh bg-ink text-paper">
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5">
-        <span className="font-display text-xl">
-          SPHEREx <span className="italic text-muted">Sky Explorer</span>
+        <span className="flex items-center gap-2.5 font-display text-xl">
+          <Logo className="h-8 w-8" />
+          <span className="flex items-baseline gap-2 leading-none">
+            <span className="text-3xl tracking-tight">Eskai</span>
+            <span className="hidden whitespace-nowrap text-lg italic text-muted sm:inline">look up</span>
+          </span>
         </span>
         <ViewerLink to={GO.explore} className="inline-flex min-h-11 items-center gap-1.5 text-sm text-muted hover:text-paper md:min-h-0">
           Open the viewer <ArrowRightIcon className="h-4 w-4" />
@@ -338,8 +343,12 @@ export default function Landing({ onOpen }: Props) {
       <footer className="border-t border-rule bg-surface">
         <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-12">
           <div className="space-y-4 md:col-span-4">
-            <p className="font-display text-xl">
-              SPHEREx <span className="italic text-muted">Sky Explorer</span>
+            <p className="flex items-center gap-2.5 font-display text-xl">
+              <Logo className="h-9 w-9" />
+              <span className="flex items-baseline gap-2 leading-none">
+                <span className="text-3xl tracking-tight">Eskai</span>
+                <span className="whitespace-nowrap text-lg italic text-muted">look up</span>
+              </span>
             </p>
             <p className="text-sm leading-relaxed text-muted">
               A citizen-science viewer built for the 2026 NASA Space Apps Challenge, “Planet X and SPHEREx”. The figures about the mission on this page are
