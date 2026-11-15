@@ -24,7 +24,7 @@ export function timeAgo(iso: string, now = Date.now()): string {
   const hours = Math.round(minutes / 60)
   if (hours < 24) return `${hours} h ago`
   const days = Math.round(hours / 24)
-  return days < 30 ? `${days} d ago` : new Date(iso).toLocaleDateString()
+  return days < 30 ? `${days} d ago` : new Date(iso).toLocaleDateString('en-US')
 }
 
 /**

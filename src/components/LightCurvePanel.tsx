@@ -17,6 +17,8 @@ interface Props {
   points: LightCurvePoint[]
   /** Epoch the timeline is showing now: marked on the curve so both views stay in step. */
   currentEpochId?: string | null
+  /** Scientific caveats from the backend (unvalidated / saturated): always shown with the curve. */
+  cautions?: string[]
   onClose: () => void
 }
 
@@ -28,7 +30,7 @@ interface Row {
 }
 
 const DAY_MS = 86_400_000
-const shortDate = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
+const shortDate = (t: number) => new Date(t).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
 
 function Tip({ active, payload }: { active?: boolean; payload?: { payload: Row }[] }) {
   const row = payload?.[0]?.payload
@@ -36,7 +38,7 @@ function Tip({ active, payload }: { active?: boolean; payload?: { payload: Row }
   return (
     <div className="rounded bg-black/90 px-2 py-1 text-[11px] leading-snug">
       <div>
-        {row.epochId} · {new Date(row.t).toLocaleDateString()}
+        {row.epochId} · {new Date(row.t).toLocaleDateString('en-US')}
       </div>
       <div>
         {fmt(row.flux)} ± {fmt(row.sigma)} MJy/sr
@@ -49,7 +51,7 @@ function Tip({ active, payload }: { active?: boolean; payload?: { payload: Row }
  * Brightness of the target at every SPHEREx visit. Points without valid photometry (saturated
  * cores) come as `null` with a note: they are never drawn as zero, and the notes are listed.
  */
-export default function LightCurvePanel({ points, currentEpochId, onClose }: Props) {
+export default function LightCurvePanel({ points, currentEpochId, cautions = [], onClose }: Props) {
   const rows = useMemo<Row[]>(
     () =>
       points
@@ -90,6 +92,12 @@ export default function LightCurvePanel({ points, currentEpochId, onClose }: Pro
           ✕
         </button>
       </div>
+
+      {cautions.map(c => (
+        <p key={c} className="mt-2 rounded bg-amber-900/60 px-2 py-1 text-amber-200">
+          {c}
+        </p>
+      ))}
 
       {rows.length === 0 ? (
         <div className="mt-3 rounded border border-slate-700 p-3 text-slate-300">

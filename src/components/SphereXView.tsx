@@ -1,3 +1,10 @@
+import { cautionLines } from '../lib/caution'
+import ChatPanel from './ChatPanel'
+import GameDialog from './GameDialog'
+import { useTargetFacts } from '../hooks/useTargetFacts'
+import { distanceText, findTarget, lightStory } from '../lib/story'
+import { useNearbyStar } from '../hooks/useNearbyStar'
+import { nearbyStarText } from '../lib/simbad'
 import { useMemo, useState } from 'react'
 import { useSkyPatch } from '../hooks/useSkyPatch'
 import { useAutoplay } from '../hooks/useAutoplay'
@@ -25,7 +32,7 @@ const FPS_OPTIONS = [1, 2, 4, 12, 24]
 const NO_ANOMALIES: never[] = []
 const NO_EPOCHS: never[] = []
 const NO_FRAMES: DiffFrame[] = []
-const fmtDate = (iso: string | undefined) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
+const fmtDate = (iso: string | undefined) => (iso ? new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 // Chemical filters named in the contract; shown (inert) until real data says otherwise.
 const DEFAULT_FILTERS = ['H2O', 'CO2', 'CO']
 // The API only accepts fov between 1 and 30 arcmin (422 otherwise) and caps live jobs at 15;
@@ -69,10 +76,18 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
   const [probe, setProbe] = useState<{ x: number; y: number; patchKey: string } | null>(null)
   const [spectrumOpen, setSpectrumOpen] = useState(false) // charts stay closed until asked for
   // The left column holds ONE extra panel at a time (they don't fit together); closed until asked for.
-  const [leftPanel, setLeftPanel] = useState<'lightcurve' | 'community' | null>(null)
+  const [leftPanel, setLeftPanel] = useState<'lightcurve' | 'community' | 'chat' | null>(null)
   const [allTargets, setAllTargets] = useState(false) // community feed: every target, not just this one
   const [showMarkers, setShowMarkers] = useState(false) // community reports drawn on the image
   const [highlightReport, setHighlightReport] = useState<string | null>(null)
+  const targetFacts = useTargetFacts()
+  // Cached data for ANOTHER position (fallback) must not borrow that object's story.
+  const facts = data?.fallback ? undefined : findTarget(targetFacts, data?.target_info.name)
+  // Any other position: what SIMBAD catalogues right there (only when it is not one of the five).
+  const nearby = useNearbyStar(ra, dec, data !== null && !data.fallback && !facts)
+  const [gameOpen, setGameOpen] = useState(false) // the "Find what moves" game
+  const [infoOpen, setInfoOpen] = useState(false) // details of the Difference / Detections layer
+  const [noteOpen, setNoteOpen] = useState(false) // the long scientific caveat (collapsed by default)
   const [motionOn, setMotionOn] = useState(true) // rings + arrow where the target should be (checkbox in the difference notice)
   const fps = FPS_OPTIONS[fpsIdx]
   const diff = data?.difference_imaging
@@ -95,7 +110,7 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
     () =>
       frames
         ? frames.map(f => ({ label: f.label }))
-        : (data?.timelapse_epochs ?? NO_EPOCHS).map(e => ({ label: new Date(e.date).toLocaleDateString() })),
+        : (data?.timelapse_epochs ?? NO_EPOCHS).map(e => ({ label: new Date(e.date).toLocaleDateString('en-US') })),
     [frames, data],
   )
 
@@ -137,6 +152,21 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
       arrow: { from: before, to: after },
     }
   }, [data, known, motionOn, diffLike, activeDiff])
+
+  // What the assistant is told about the screen: the object, the layer and the backend's own caveats.
+  const chatContext = useMemo<Record<string, unknown>>(
+    () => ({
+      ...(facts ? { target: facts.key } : { target_name: data?.target_info.name }),
+      layer,
+      blink: diffLike,
+      weak_signal: diffLike && activeDiff ? activeDiff.weak : undefined,
+      saturated: data?.saturated ?? undefined,
+      quality: data?.quality ?? undefined,
+      science_note: data?.science_note ?? undefined,
+      fallback_reason: data?.fallback ? (data.fallback_reason ?? undefined) : undefined,
+    }),
+    [facts, data, layer, diffLike, activeDiff],
+  )
 
   // A probe belongs to the patch it was made on; a new patch discards it.
   const activeProbe = probe && probe.patchKey === patchKey ? probe : null
@@ -194,6 +224,7 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
     return {
       title: `Target · ${data.target_info.name}`,
       subtitle: data.saturated ? 'saturated core' : undefined,
+      warning: cautionLines(data).join(' ') || null,
       epochId: data.spectrum_epoch_id,
       spectrum: data.spectrum_102_bands,
       message: data.spectrum_message,
@@ -269,23 +300,69 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
       )}
 
       <div className="absolute left-3 top-3 z-10 flex flex-col items-start gap-2">
-        <button
-          onClick={onBack}
-          className="rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
-        >
-          ← Back to sky map
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onBack}
+            className="rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
+          >
+            ← Back to sky map
+          </button>
+          <button
+            onClick={() => setGameOpen(true)}
+            title="A short game: two images flicker, click what moved"
+            className="rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
+          >
+            Play: find what moves
+          </button>
+        </div>
         <div className="rounded bg-black/70 p-3 font-mono text-xs backdrop-blur">
           <div className="text-slate-400">SPHEREx data for</div>
           <div>RA&nbsp; {fmt(ra)}°</div>
           <div>Dec {fmt(dec)}°</div>
           {data && <div className="mt-1 text-slate-300">{data.target_info.name}</div>}
+          {nearby !== undefined && (
+            <div
+              className="mt-1 max-w-[15rem] font-sans text-slate-400"
+              title="From SIMBAD (parallax). It is the closest catalogued star to the centre, not necessarily what you are looking at."
+            >
+              {nearby ? nearbyStarText(nearby) : 'No star with a measured distance at the centre of this view.'}
+            </div>
+          )}
+          {facts && lightStory(facts) && (
+            <div
+              className="mt-1 max-w-[15rem] font-sans text-slate-400"
+              title={facts.distance_source ?? undefined}
+            >
+              {distanceText(facts)} away. {lightStory(facts)}
+            </div>
+          )}
+          {data && cautionLines(data, { full: true }).length > 0 && (
+            <div className="mt-2 max-w-[15rem] font-sans text-amber-200">
+              <button
+                onClick={() => setNoteOpen(o => !o)}
+                aria-expanded={noteOpen}
+                title="Scientific caveat from the data team: what can and cannot be claimed from this object"
+                className="text-left"
+              >
+                ⚠ {cautionLines(data)[0] ?? 'Note about this data'}{' '}
+                <span className="underline">{noteOpen ? 'hide' : 'why?'}</span>
+              </button>
+              {noteOpen && (
+                <div className="mt-1 max-h-40 space-y-1 overflow-y-auto text-[11px] text-amber-100">
+                  {cautionLines(data, { full: true }).map(line => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">
           {[
             { label: 'Spectrum', open: spectrumOpen, toggle: () => setSpectrumOpen(o => !o) },
             { label: 'Light curve', open: leftPanel === 'lightcurve', toggle: () => setLeftPanel(p => (p === 'lightcurve' ? null : 'lightcurve')) },
+            { label: 'Ask', open: leftPanel === 'chat', toggle: () => setLeftPanel(p => (p === 'chat' ? null : 'chat')) },
             { label: 'Community', open: leftPanel === 'community', toggle: () => setLeftPanel(p => (p === 'community' ? null : 'community')) },
           ].map(b => (
             <button
@@ -306,8 +383,12 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
           <LightCurvePanel
             points={data.light_curve}
             currentEpochId={diffLike ? activeDiff?.epochA : epoch?.epoch_id}
+            cautions={cautionLines(data)}
             onClose={() => setLeftPanel(null)}
           />
+        )}
+        {data && leftPanel === 'chat' && (
+          <ChatPanel targetKey={facts?.key ?? null} context={chatContext} onClose={() => setLeftPanel(null)} />
         )}
         {data && leftPanel === 'community' && (
           <CommunityPanel
@@ -331,62 +412,77 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
             {data.fallback_message ?? 'Showing cached data for another position.'}
           </p>
         )}
-        {diffLike && diff && activeDiff && (
-          <div className="rounded bg-black/70 px-3 py-2 backdrop-blur">
-            {inDetect ? (
-              <>
-                <div className="font-medium text-slate-100">
-                  {diff.detection_label ?? 'Software-assisted detection (BETA)'} · {activeDiff.label}
-                </div>
-                <div className="text-slate-300">
-                  {diff.detection_notice ?? 'Detected by software: needs human verification'}
-                </div>
-                <div className="mt-1 flex justify-center gap-3 text-[11px] text-slate-400">
-                  <span><span className="text-emerald-400">●</span> appeared</span>
-                  <span><span className="text-rose-400">●</span> disappeared</span>
-                  <span><span className="text-amber-400">●</span> contaminated</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="font-medium text-slate-100">
-                  {activeDiff.consecutive ? 'What changed between consecutive visits' : 'What changed between the first and the last visit'}{' '}
-                  · {activeDiff.label}
-                </div>
-                {diffFrames.length > 1 && (
-                  <div className="text-slate-300">Press play to step through the {diffFrames.length} differences.</div>
-                )}
-              </>
-            )}
-            <div className="mt-1 text-[11px] text-slate-400">
-              {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochB)?.date)} →{' '}
-              {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochA)?.date)}
-              {activeDiff.deltaDays != null ? ` · ${Math.round(activeDiff.deltaDays)} days apart` : ''}
-              {activeDiff.expectedShiftArcsec != null ? ` · expected motion ${activeDiff.expectedShiftArcsec.toFixed(1)}″` : ''}
-            </div>
-            {activeDiff.weak && (
-              <div className="mt-1 text-amber-300">
-                Weak signal: the expected motion is under one SPHEREx pixel (6.15″), so any dipole will be faint.
-              </div>
-            )}
-            <div className="mt-1 text-[11px] text-slate-400">
-              <span className="text-red-400">red</span> brighter in the later visit ·{' '}
-              <span className="text-sky-400">blue</span> brighter in the earlier visit
-            </div>
-            {known && (
-              <label className="mt-1 flex items-center justify-center gap-2 text-[11px] text-slate-300">
-                <input type="checkbox" checked={motionOn} onChange={e => setMotionOn(e.target.checked)} />
-                Mark where {known.name} should be, from its known motion
-              </label>
-            )}
-            {known && motionOn && (
-              <div className="text-[11px] text-slate-500">
-                <span className="text-sky-400">blue ring</span> before · <span className="text-red-400">red ring</span> now · arrow: expected motion
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* Bottom right, above the timeline: out of the way of the image. Details open upwards. */}
+      <div className="absolute bottom-16 right-3 z-10 w-[22rem] max-w-[calc(100vw-1.5rem)] text-center text-xs">
+  {diffLike && diff && activeDiff && (
+    <div className="rounded bg-black/70 px-3 py-2 backdrop-blur">
+      <div className="flex items-center justify-center gap-2">
+        <span className="font-medium text-slate-100">
+          {inDetect
+            ? 'Detections (beta) · needs human verification'
+            : `${activeDiff.consecutive ? 'Changes between consecutive visits' : 'Changes, first vs last visit'} · ${activeDiff.label}`}
+        </span>
+        <button
+          onClick={() => setInfoOpen(o => !o)}
+          aria-expanded={infoOpen}
+          aria-label="More about this layer"
+          title="More about this layer"
+          className="rounded-full border border-slate-500 px-1.5 text-[11px] leading-4 text-slate-300 hover:bg-slate-700"
+        >
+          i
+        </button>
+      </div>
+      {activeDiff.weak && (
+        <div className="mt-1 text-amber-300">Weak signal: the expected motion is under one SPHEREx pixel.</div>
+      )}
+      {infoOpen && (
+        <div className="mt-2 space-y-1 border-t border-slate-700 pt-2 text-[11px] text-slate-300">
+          {inDetect ? (
+            <>
+              <div>
+                {diff.detection_label ?? 'Software-assisted detection (BETA)'}: {diff.detection_notice ?? 'detected by software, needs human verification.'}
+              </div>
+              <div className="flex justify-center gap-3 text-slate-400">
+                <span><span className="text-emerald-400">●</span> appeared</span>
+                <span><span className="text-rose-400">●</span> disappeared</span>
+                <span><span className="text-amber-400">●</span> contaminated</span>
+              </div>
+            </>
+          ) : (
+            <>
+              {diffFrames.length > 1 && <div>Press play to step through the {diffFrames.length} differences.</div>}
+              <div className="text-slate-400">
+                {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochB)?.date)} →{' '}
+                {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochA)?.date)}
+                {activeDiff.deltaDays != null ? ` · ${Math.round(activeDiff.deltaDays)} days apart` : ''}
+                {activeDiff.expectedShiftArcsec != null ? ` · expected motion ${activeDiff.expectedShiftArcsec.toFixed(1)}″` : ''}
+              </div>
+              <div className="text-slate-400">
+                <span className="text-red-400">red</span> brighter in the later visit ·{' '}
+                <span className="text-sky-400">blue</span> brighter in the earlier visit
+              </div>
+              {known && (
+                <label className="flex items-center justify-center gap-2 text-slate-300">
+                  <input type="checkbox" checked={motionOn} onChange={e => setMotionOn(e.target.checked)} />
+                  Mark where {known.name} should be, from its known motion
+                </label>
+              )}
+              {known && motionOn && (
+                <div className="text-slate-500">
+                  <span className="text-sky-400">blue ring</span> before · <span className="text-red-400">red ring</span> now · arrow: expected motion
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )}
+      </div>
+
+      {gameOpen && <GameDialog onClose={() => setGameOpen(false)} />}
 
       {loading && !data && <JobCard job={job} />}
 

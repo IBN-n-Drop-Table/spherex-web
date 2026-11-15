@@ -1,3 +1,4 @@
+import { ApiError } from '../api/http'
 import type { JobResponse } from '../types/api'
 
 const DEFAULT_POLL_MS = 1500
@@ -6,6 +7,13 @@ const DEFAULT_TIMEOUT_MS = 5 * 60_000
 
 /** A job that ended with `status: failed` (the message is already readable). */
 export class JobFailedError extends Error {}
+
+/** The server no longer knows the job (it restarted, or the job expired): it has to be started again. */
+export class JobLostError extends JobFailedError {
+  constructor() {
+    super('The analysis was lost (the server restarted). Run it again.')
+  }
+}
 
 export interface JobProgress {
   stage: string | null // queued | query | download | stack | render | done
@@ -51,6 +59,11 @@ export async function awaitJob<T>(
     })
     if (Date.now() > deadline) throw new Error('Timed out waiting for the SPHEREx job.')
     await sleep(current.retry_after_ms ?? DEFAULT_POLL_MS, opts.signal)
-    current = await poll(current.job_id)
+    try {
+      current = await poll(current.job_id)
+    } catch (e) {
+      if (e instanceof ApiError && e.problem.code === 'job_not_found') throw new JobLostError()
+      throw e
+    }
   }
 }

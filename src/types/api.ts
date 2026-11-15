@@ -103,6 +103,131 @@ export interface LightCurvePoint {
   note?: string | null
 }
 
+/** GET /api/v1/targets: one of the challenge objects, with its distance (from the parallax). */
+export interface TargetSummary {
+  key: string // e.g. BARNARDS_STAR
+  name: string
+  ra_deg: number
+  dec_deg: number
+  fov_arcmin: number
+  is_cached_golden_path: boolean
+  n_epochs: number
+  distance_ly?: number | null
+  distance_source?: string | null // the parallax citation (Gaia DR3 with source_id, or Kirkpatrick et al. 2021)
+  light_left_years_ago?: number | null // rounded (2 significant figures when the distance is uncertain)
+  distance_uncertain?: boolean | null // say "roughly"
+}
+
+export type ChatTone = 'easy' | 'technical'
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+/** POST /api/v1/chat */
+export interface ChatRequest {
+  message: string // 1-500 characters
+  tone: ChatTone
+  context?: Record<string, unknown> // <= 4 KB; the server reads science_note / quality / saturated / weak_signal at any depth
+  history?: ChatTurn[] // the server keeps the last 6 turns
+}
+export interface ChatResponse {
+  answer: string
+  provider: 'groq' | 'deepseek' | 'canned'
+  cached: boolean
+  fallback: boolean // true: a pre-written answer, not an AI one
+  disclaimer: string
+  cautions: string[] // always shown with the answer
+}
+export interface ChatSuggestions {
+  target: string | null
+  suggestions: string[]
+}
+
+/** "Find what moves": one round = two visits of the same patch to flicker between. */
+export interface GameRound {
+  round_id: string
+  target_id: string
+  target_name: string
+  kind: 'first_vs_last' | 'consecutive'
+  epoch_a: string // the later visit
+  epoch_b: string // the earlier visit
+  date_a: string
+  date_b: string
+  image_a_url: string
+  image_b_url: string
+  hint_image_url: string | null // only in weak-signal rounds: the difference image
+  image_size: { width: number; height: number }
+  weak_signal: boolean // the expected motion is under one SPHEREx pixel
+  difficulty: 'easy' | 'medium' | 'hard'
+  delta_t_days: number
+  expected_shift_arcsec: number
+}
+export interface GameSession {
+  session_id: string
+  expires_at: string
+  rounds: GameRound[]
+  scoring: string
+}
+export interface GamePoint {
+  x: number
+  y: number
+}
+export interface GuessResult {
+  hit: boolean
+  distance_px: number
+  score: number // 0-1000, computed by the server
+  answer: GamePoint
+  answer_path: GamePoint[] // the object's position in the earlier visit, then in the later one
+  hit_radius_px: number
+  explanation_es: string
+}
+export interface FinishResult {
+  session_id: string
+  nickname: string
+  score: number
+  hits: number
+  rounds_played: number
+  rounds_total: number
+  stored_in: string
+}
+export interface LeaderboardEntry {
+  nickname: string
+  score: number
+  hits: number
+  rounds_played: number
+  rounds_total: number
+  created_at: string
+}
+export interface Leaderboard {
+  entries: LeaderboardEntry[]
+  backend: 'memory' | 'supabase'
+}
+
+/** Why cached data was served instead of a live answer. */
+export type FallbackReason = 'irsa_unavailable' | 'live_processing_unavailable' | 'unknown'
+/** Response-level data quality (not the per-channel `SpectrumPoint.quality`). */
+export type ResponseQuality = 'unvalidated' | 'low'
+
+/** One citation: the data a response comes from (same as GET /credits). */
+export interface DataCredit {
+  id: string
+  source: string
+  dataset: string
+  used_for: string
+  citation?: string | null
+  doi?: string | null
+  url: string
+  access?: string | null
+}
+
+/** GET /api/v1/credits */
+export interface CreditsResponse {
+  data_credits: DataCredit[]
+  acknowledgement: string // the SPHEREx acknowledgement text requested by IRSA
+  acknowledgement_source: string
+  software: string[]
+}
+
 export interface SkyPatchResponse {
   target_info: TargetInfo
   patch: Patch
@@ -116,6 +241,10 @@ export interface SkyPatchResponse {
   band?: string | null
   fallback: boolean // IRSA failed: this is cached data for ANOTHER position
   fallback_message?: string | null
+  fallback_reason?: FallbackReason | null
+  science_note?: string | null // what can and cannot be claimed from this object's data
+  quality?: ResponseQuality | null
+  data_credits?: DataCredit[] | null
 }
 
 /** GET /api/v1/spectrum: a target's, an anomaly's, or any position's spectrum. */
@@ -132,6 +261,10 @@ export interface SpectrumResponse {
   spectrum_message?: string | null
   fallback: boolean // IRSA failed: this is the cached TARGET spectrum, not the clicked point's
   fallback_message?: string | null
+  fallback_reason?: FallbackReason | null
+  science_note?: string | null // what can and cannot be claimed from this object's data
+  quality?: ResponseQuality | null
+  data_credits?: DataCredit[] | null
 }
 
 export interface SkyQuery {

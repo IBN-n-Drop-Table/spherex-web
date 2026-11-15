@@ -85,9 +85,6 @@ export default function App() {
             >
               {wipe ? 'Hide comparison' : 'Compare: eye vs infrared'}
             </button>
-            <TargetPicker
-              onSelect={t => setUrl({ ...targetPosition(t), fov: TARGET_FOV_ARCMIN })}
-            />
             <SkyCommunity
               open={communityOpen}
               onToggle={() => setCommunityOpen(o => !o)}
@@ -96,6 +93,9 @@ export default function App() {
               onShowMarkersChange={setShowCommunityMarkers}
               highlightId={highlightReport}
               onLocate={goToReport}
+            />
+            <TargetPicker
+              onSelect={t => setUrl({ ...targetPosition(t), fov: TARGET_FOV_ARCMIN })}
             />
           </div>
           <button

@@ -173,7 +173,7 @@ export async function renderShareCard(report: CitizenReport, image: CardImage | 
   ctx.fillText(`Found by ${report.discoverer}`, x, 518)
   ctx.fillStyle = '#94a3b8'
   ctx.font = `18px ${FONT}`
-  const when = new Date(report.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  const when = new Date(report.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
   const confirmed = report.verifications_count > 1 ? ` · confirmed by ${report.verifications_count - 1}` : ''
   ctx.fillText(`${when}${confirmed}`, x, 548)
 

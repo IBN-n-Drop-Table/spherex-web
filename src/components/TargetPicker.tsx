@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { TARGETS, type Target } from '../data/targets'
+import { useTargetFacts } from '../hooks/useTargetFacts'
+import { distanceText, findTarget } from '../lib/story'
 
 interface Props {
   onSelect: (target: Target) => void
@@ -9,6 +11,7 @@ interface Props {
 export default function TargetPicker({ onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const facts = useTargetFacts()
 
   // Close on outside click or Escape.
   useEffect(() => {
@@ -55,7 +58,10 @@ export default function TargetPicker({ onSelect }: Props) {
                 className="block w-full px-3 py-2 text-left hover:bg-slate-800"
               >
                 <span className="block text-sm">{t.name}</span>
-                <span className="block text-xs text-slate-400">{t.note}</span>
+                <span className="block text-xs text-slate-400">
+                  {t.note}
+                  {distanceText(findTarget(facts, t.name)) ? ` · ${distanceText(findTarget(facts, t.name))}` : ''}
+                </span>
               </button>
             </li>
           ))}
