@@ -67,3 +67,17 @@ export async function awaitJob<T>(
     }
   }
 }
+
+/**
+ * Runs `attempt` (start a job and follow it). If the server says it lost the job (it restarted),
+ * starts the whole thing once more, so a restart in the middle of a wait costs the user nothing.
+ * Only one retry: a second loss is shown as an error instead of looping.
+ */
+export async function retryIfLost<T>(attempt: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  try {
+    return await attempt()
+  } catch (e) {
+    if (e instanceof JobLostError && !signal.aborted) return attempt()
+    throw e
+  }
+}

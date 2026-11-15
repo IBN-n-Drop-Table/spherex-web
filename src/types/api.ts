@@ -85,8 +85,8 @@ export interface DifferenceImaging {
   image_format: ImageFormat
   subtracted_image_url: string // first vs last visit: the anomaly detector runs on this one
   detected_anomalies: Anomaly[]
-  detection_label?: string | null // "Detección Asistida por Software (BETA)"
-  detection_notice?: string | null // "...requiere verificación humana"
+  detection_label?: string | null // "Software-Assisted Detection (BETA)"
+  detection_notice?: string | null // "Anomaly detected by software: requires human verification"
   kind?: 'first_vs_last'
   delta_t_days?: number | null
   detectors_used?: number[] | null
@@ -116,6 +116,8 @@ export interface TargetSummary {
   distance_source?: string | null // the parallax citation (Gaia DR3 with source_id, or Kirkpatrick et al. 2021)
   light_left_years_ago?: number | null // rounded (2 significant figures when the distance is uncertain)
   distance_uncertain?: boolean | null // say "roughly"
+  story_es?: string | null // ready-made subtitle (English despite the name; already says "roughly" when uncertain)
+  description_es?: string | null // 1-2 plain sentences about the object (English despite the name)
 }
 
 export type ChatTone = 'easy' | 'technical'
@@ -137,6 +139,7 @@ export interface ChatResponse {
   fallback: boolean // true: a pre-written answer, not an AI one
   disclaimer: string
   cautions: string[] // always shown with the answer
+  sources?: string[] // e.g. ["SIMBAD"] when catalogue data was used; the key is absent otherwise (never null)
 }
 export interface ChatSuggestions {
   target: string | null
@@ -201,6 +204,11 @@ export interface LeaderboardEntry {
 export interface Leaderboard {
   entries: LeaderboardEntry[]
   backend: 'memory' | 'supabase'
+}
+
+/** GET /api/v1/loading-phrases */
+export interface LoadingPhrasesResponse {
+  phrases: Partial<Record<'generic' | 'cold_start' | 'subtraction' | 'game' | 'chat', string[]>>
 }
 
 /** Why cached data was served instead of a live answer. */
@@ -287,7 +295,7 @@ export interface JobResponse {
   updated_at: string
   stage?: string | null // queued | query | download | stack | render | done | failed
   progress?: number | null // 0..1
-  message?: string | null // human-readable, in Spanish
+  message?: string | null // human-readable, in English
   eta_s?: number | null
   retry_after_ms?: number | null // suggested polling interval
 }

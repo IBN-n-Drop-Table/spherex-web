@@ -49,7 +49,8 @@ function Tip({ active, payload }: { active?: boolean; payload?: { payload: Row }
 
 /**
  * Brightness of the target at every SPHEREx visit. Points without valid photometry (saturated
- * cores) come as `null` with a note: they are never drawn as zero, and the notes are listed.
+ * cores) come as `null` with a note: they are never drawn as zero. Every note is listed, including those
+ * on points that DO have a flux (e.g. a biased lower limit that must not be used to claim variability).
  */
 export default function LightCurvePanel({ points, currentEpochId, cautions = [], onClose }: Props) {
   const rows = useMemo<Row[]>(
@@ -66,7 +67,7 @@ export default function LightCurvePanel({ points, currentEpochId, cautions = [],
     [points],
   )
   const notes = useMemo(
-    () => [...new Set(points.filter(p => p.flux_mjy_sr === null).map(p => p.note).filter(Boolean))] as string[],
+    () => [...new Set(points.map(p => p.note).filter(Boolean))] as string[], // every note, with or without flux
     [points],
   )
 
@@ -80,7 +81,7 @@ export default function LightCurvePanel({ points, currentEpochId, cautions = [],
   const current = rows.find(r => r.epochId === currentEpochId)
 
   return (
-    <div className="w-[26rem] max-w-[calc(100vw-1.5rem)] rounded bg-black/80 p-3 text-xs backdrop-blur">
+    <div className="max-h-[calc(100vh-23rem)] min-h-[16rem] w-[26rem] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded bg-black/80 p-3 text-xs backdrop-blur">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-sm font-medium text-slate-100">Light curve</div>
@@ -98,6 +99,12 @@ export default function LightCurvePanel({ points, currentEpochId, cautions = [],
           {c}
         </p>
       ))}
+      {rows.length > 0 &&
+        notes.map(n => (
+          <p key={n} className="mt-2 rounded bg-amber-900/40 px-2 py-1 text-[11px] leading-snug text-amber-200">
+            {n}
+          </p>
+        ))}
 
       {rows.length === 0 ? (
         <div className="mt-3 rounded border border-slate-700 p-3 text-slate-300">
@@ -146,11 +153,6 @@ export default function LightCurvePanel({ points, currentEpochId, cautions = [],
         </>
       )}
 
-      {rows.length > 0 && notes.map(n => (
-        <p key={n} className="mt-2 text-[11px] leading-snug text-amber-200/90">
-          {n}
-        </p>
-      ))}
     </div>
   )
 }

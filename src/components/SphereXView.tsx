@@ -2,7 +2,7 @@ import { cautionLines } from '../lib/caution'
 import ChatPanel from './ChatPanel'
 import GameDialog from './GameDialog'
 import { useTargetFacts } from '../hooks/useTargetFacts'
-import { distanceText, findTarget, lightStory } from '../lib/story'
+import { findTarget, lightStory } from '../lib/story'
 import { useNearbyStar } from '../hooks/useNearbyStar'
 import { nearbyStarText } from '../lib/simbad'
 import { useMemo, useState } from 'react'
@@ -333,7 +333,7 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
               className="mt-1 max-w-[15rem] font-sans text-slate-400"
               title={facts.distance_source ?? undefined}
             >
-              {distanceText(facts)} away. {lightStory(facts)}
+              {lightStory(facts)}
             </div>
           )}
           {data && cautionLines(data, { full: true }).length > 0 && (
@@ -388,7 +388,12 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
           />
         )}
         {data && leftPanel === 'chat' && (
-          <ChatPanel targetKey={facts?.key ?? null} context={chatContext} onClose={() => setLeftPanel(null)} />
+          <ChatPanel
+            targetKey={facts?.key ?? null}
+            context={chatContext}
+            position={!facts && !data.fallback ? { ra, dec } : undefined}
+            onClose={() => setLeftPanel(null)}
+          />
         )}
         {data && leftPanel === 'community' && (
           <CommunityPanel

@@ -11,6 +11,7 @@ import type {
   GameSession,
   GuessResult,
   Leaderboard,
+  LoadingPhrasesResponse,
   TargetSummary,
   JobResponse,
   SkyQuery,
@@ -80,6 +81,11 @@ export function getLeaderboard(signal?: AbortSignal) {
 /** The challenge objects with their distances. */
 export function listTargets(signal?: AbortSignal) {
   return getJson<TargetSummary[]>('/api/v1/targets', {}, { signal })
+}
+
+/** Short ambience lines for waiting screens, by category. Answers even when everything else fails. */
+export function getLoadingPhrases(signal?: AbortSignal) {
+  return getJson<LoadingPhrasesResponse>('/api/v1/loading-phrases', {}, { signal, timeoutMs: 8000 })
 }
 
 /** What data the app uses and how to cite it (shown in the credits). */

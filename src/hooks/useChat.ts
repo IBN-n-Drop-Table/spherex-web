@@ -8,7 +8,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
   /** Assistant only: the server's flags and the caveats that must stay next to the answer. */
-  reply?: Pick<ChatResponse, 'fallback' | 'cached' | 'provider' | 'cautions'>
+  reply?: Pick<ChatResponse, 'fallback' | 'cached' | 'cautions' | 'sources'> & { provider: ChatResponse['provider'] | 'catalogue' }
 }
 
 const HISTORY_TURNS = 6
@@ -62,7 +62,7 @@ export function useChat(context: Record<string, unknown>, tone: ChatTone) {
       )
       setMessages(m => [
         ...m,
-        { id: nextId.current++, role: 'assistant', text: r.answer, reply: { fallback: r.fallback, cached: r.cached, provider: r.provider, cautions: r.cautions } },
+        { id: nextId.current++, role: 'assistant', text: r.answer, reply: { fallback: r.fallback, cached: r.cached, provider: r.provider, cautions: r.cautions, sources: r.sources } },
       ])
     } catch (e) {
       if (c.signal.aborted) return
@@ -77,5 +77,15 @@ export function useChat(context: Record<string, unknown>, tone: ChatTone) {
     }
   }, [])
 
-  return { messages, busy, error, waitS, send }
+  /** A question answered here (e.g. a catalogue lookup), not by the assistant: shown in the same thread. */
+  const addLocal = useCallback((question: string, answer: string, sources: string[]) => {
+    setError(null)
+    setMessages(m => [
+      ...m,
+      { id: nextId.current++, role: 'user', text: question },
+      { id: nextId.current++, role: 'assistant', text: answer, reply: { fallback: false, cached: false, provider: 'catalogue', cautions: [], sources } },
+    ])
+  }, [])
+
+  return { messages, busy, error, waitS, send, addLocal, setError }
 }

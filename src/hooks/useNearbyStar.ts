@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { nearestStar, type NearbyStar } from '../lib/simbad'
+import { nearestStar, simbadPaused, type NearbyStar } from '../lib/simbad'
 
 // Answers by position, so going back and forth does not ask SIMBAD again.
 const cache = new Map<string, NearbyStar | null>()
@@ -13,7 +13,7 @@ export function useNearbyStar(ra: number, dec: number, enabled: boolean): Nearby
   const key = keyOf(ra, dec)
   const [found, setFound] = useState<{ key: string; star: NearbyStar | null } | null>(null)
   useEffect(() => {
-    if (!enabled || cache.has(key)) return
+    if (!enabled || cache.has(key) || simbadPaused()) return
     const ctrl = new AbortController()
     nearestStar(ra, dec, ctrl.signal).then(
       star => {

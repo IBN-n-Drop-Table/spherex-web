@@ -10,6 +10,7 @@ import CoordinatesPanel from './components/CoordinatesPanel'
 import TargetPicker from './components/TargetPicker'
 import { TARGET_FOV_ARCMIN, targetPosition } from './data/targets'
 import Credits from './components/Credits'
+import GameDialog from './components/GameDialog'
 
 /**
  * Two views, switched with a button (and the URL: ?view=data):
@@ -22,6 +23,7 @@ export default function App() {
   const [{ ra, dec, fov, band: layer, view }, setUrl] = useUrlState()
   const mapRef = useRef<SkyMapHandle>(null)
   const [wipe, setWipe] = useState(false)
+  const [gameOpen, setGameOpen] = useState(false) // the "Find what moves" game (also reachable from the data view)
   const [footprint, setFootprint] = useState<SkyFootprint | null>(null)
 
   // Community discoveries on the sky map: the list, and (optionally) their markers on the map.
@@ -85,6 +87,13 @@ export default function App() {
             >
               {wipe ? 'Hide comparison' : 'Compare: eye vs infrared'}
             </button>
+            <button
+              onClick={() => setGameOpen(true)}
+              title="A short game: two images flicker, click what moved"
+              className="rounded bg-slate-900/80 px-3 py-2 text-left text-sm shadow hover:bg-slate-800"
+            >
+              Play: find what moves
+            </button>
             <SkyCommunity
               open={communityOpen}
               onToggle={() => setCommunityOpen(o => !o)}
@@ -118,6 +127,8 @@ export default function App() {
           }
         />
       )}
+
+      {view === 'sky' && gameOpen && <GameDialog onClose={() => setGameOpen(false)} />}
 
       <Credits raised={view === 'data'} />
     </main>

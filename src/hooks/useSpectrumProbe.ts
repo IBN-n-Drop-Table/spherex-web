@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getJob, getSpectrumAt } from '../api/spherex'
 import { ApiError } from '../api/http'
-import { awaitJob, JobFailedError, type JobProgress } from '../lib/jobs'
+import { awaitJob, JobFailedError, retryIfLost, type JobProgress } from '../lib/jobs'
 import type { SpectrumResponse } from '../types/api'
 
 export interface ProbePoint {
@@ -53,14 +53,15 @@ export function useSpectrumProbe(point: ProbePoint | null): SpectrumProbeState {
   useEffect(() => {
     if (key === null || ra === undefined || dec === undefined || fov === undefined) return
     const ctrl = new AbortController()
-    const run = async (): Promise<SpectrumResponse> => {
-      const first = await getSpectrumAt({ ra, dec, fov }, ctrl.signal)
-      if ('ready' in first) return first.ready
-      return awaitJob<SpectrumResponse>(first.job, id => getJob(id, ctrl.signal), {
-        signal: ctrl.signal,
-        onProgress: setJob,
-      })
-    }
+    const run = (): Promise<SpectrumResponse> =>
+      retryIfLost(async () => {
+        const first = await getSpectrumAt({ ra, dec, fov }, ctrl.signal)
+        if ('ready' in first) return first.ready
+        return awaitJob<SpectrumResponse>(first.job, id => getJob(id, ctrl.signal), {
+          signal: ctrl.signal,
+          onProgress: setJob,
+        })
+      }, ctrl.signal)
     run()
       .then(data => setSettled({ key, data, error: null }))
       .catch(e => {

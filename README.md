@@ -1,32 +1,81 @@
-# React + TypeScript + Vite
+# SPHEREx Sky Explorer
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A citizen-science viewer for the infrared sky, built for the NASA Space Apps challenge
+**Planet X and SPHEREx**. It takes real images from the SPHEREx space telescope and lets anyone
+explore them: compare the sky with what the eye sees, watch fast nearby stars move between
+visits, and play a short game that teaches how that movement is found.
 
-Currently, two official plugins are available:
+Everything the app marks is a *candidate*: nothing here is presented as a discovery, and anything
+the detector finds says that it needs human verification.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What you can do
 
-## React Compiler
+- **Sky map** – an all-sky infrared map (AllWISE) with editable coordinates and field of view, a
+  mini-map, and a list of **points of interest**: the five objects of the challenge.
+- **Eye vs infrared** – a draggable bar that shows the same sky in visible light (DSS2) on one side
+  and in infrared on the other.
+- **SPHEREx data** – for any position: the timelapse of SPHEREx visits, chemical filters (H₂O, CO₂,
+  CO), the difference between visits (what changed) and software-assisted detections (beta), with
+  rings for where a known mover should be. Positions outside the five cached objects are processed
+  live by the backend and take about a minute.
+- **Spectrum and light curve** – for the object on screen, always with the scientific caveats the
+  data team attaches (saturated cores, unvalidated blends).
+- **Ask** – a chat that explains what is on screen in plain or technical language, and lists
+  catalogued objects around a position (SIMBAD).
+- **Find what moves** – a game: two real images flicker, click where something moved.
+  Scored on the server; there is a leaderboard and a shareable *Star hunter* card.
+- **Community** – reports from other people, with a shareable card.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Run it
 
-## Expanding the Oxlint configuration
+You need Node.js and the backend (`spherex-api`) running on port 8000.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev          # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The dev server forwards `/api` and `/static` to `http://localhost:8000`, so no configuration is
+needed locally. To use another backend: `VITE_API_PROXY=http://localhost:8001 npm run dev`.
+
+Other scripts: `npm run build` (type-checks and writes `dist/`), `npm run preview` (serves the
+build) and `npm run lint`.
+
+## Deploy
+
+1. Build with the backend's public address:
+
+   ```bash
+   VITE_API_BASE_URL=https://your-backend.example.com npm run build
+   ```
+
+   (or put it in `.env.production`; see `.env.example`). Vite writes the value into the build, so
+   it has to be set at build time.
+2. Publish the `dist/` folder on any static host.
+3. On the backend, set `PUBLIC_BASE` to its own public URL (image links are absolute) and make
+   sure `CORS_ORIGINS` allows the address of this site. The chat needs `GROQ_API_KEY` or
+   `DEEPSEEK_API_KEY` on the backend; without them it answers with pre-written texts. API keys
+   never go in this app.
+
+A free backend host may be asleep: the first request can take a while, and the app shows loading
+lines instead of an error meanwhile.
+
+## Data and credits
+
+Open **data & credits** at the bottom-left of the app for the full, current list (it is also
+fetched from the backend). In short:
+
+- SPHEREx (NASA/JPL/Caltech), served by NASA/IPAC IRSA. *This publication makes use of data
+  products from the Spectro-Photometer for the History of the Universe, Epoch of Reionization and
+  Ices Explorer (SPHEREx), which is a joint project of the Jet Propulsion Laboratory and the
+  California Institute of Technology, and is funded by the National Aeronautics and Space
+  Administration.*
+- WISE / AllWISE sky background, via NASA/IPAC IRSA.
+- Gaia DR3 (ESA) for positions, proper motions and distances.
+- SIMBAD, operated at CDS, Strasbourg, France (Wenger et al. 2000, A&AS 143, 9).
+- DSS2 (visible-light sky), via IRSA.
+- Aladin Lite (CDS) for the sky viewer.
+
+## Built with
+
+React 19, TypeScript, Vite, Tailwind CSS, Recharts and Aladin Lite.

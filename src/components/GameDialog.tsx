@@ -5,6 +5,7 @@ import { BLINK_MS, DIFFICULTY_LABEL, GAME_ROUNDS, NICKNAME_HINT, NICKNAME_RE, de
 import { loadHandle, saveHandle } from '../lib/reports'
 import type { FinishResult, GamePoint, GameRound, GameSession, GuessResult, Leaderboard } from '../types/api'
 import HunterCardDialog from './HunterCardDialog'
+import LoadingPhrase from './LoadingPhrase'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -29,12 +30,15 @@ function Failure({ f, waitS }: { f: GameFailure; waitS: number }) {
 }
 
 /** One round: the two visits flicker; click where something moved, then submit. */
-function RoundView({ round, sessionId, index, total, onDone, onLost }: {
+function RoundView({ round, sessionId, index, total, last, onDone, onSkip, onLost }: {
   round: GameRound
   sessionId: string
   index: number
   total: number
+  last: boolean
   onDone: (r: GuessResult, mark: GamePoint) => void
+  /** The server already had an answer for this round: move on without a result to show. */
+  onSkip: () => void
   onLost: (f: GameFailure) => void
 }) {
   const { width, height } = round.image_size
@@ -45,6 +49,7 @@ function RoundView({ round, sessionId, index, total, onDone, onLost }: {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<GameFailure | null>(null)
   const [waitS, setWait] = useCountdown(null)
+  const stuck = failure?.conflict === true // 409: sending again can never work, so offer to continue
   const startedAt = useRef(0)
 
   // Load every image before it is needed, so the flicker has no gaps.
@@ -119,9 +124,15 @@ function RoundView({ round, sessionId, index, total, onDone, onLost }: {
             {hint ? 'Back to flicker' : 'Show hint'}
           </button>
         )}
-        <button onClick={submit} disabled={!mark || busy || waitS > 0} className="rounded bg-sky-600 px-4 py-1.5 hover:bg-sky-500 disabled:opacity-50">
-          {busy ? 'Checking…' : waitS > 0 ? `${waitS}s` : 'Submit answer'}
-        </button>
+        {stuck ? (
+          <button onClick={onSkip} className="rounded bg-sky-600 px-4 py-1.5 hover:bg-sky-500">
+            {last ? 'See my score' : 'Next round'}
+          </button>
+        ) : (
+          <button onClick={submit} disabled={!mark || busy || waitS > 0} className="rounded bg-sky-600 px-4 py-1.5 hover:bg-sky-500 disabled:opacity-50">
+            {busy ? 'Checking…' : waitS > 0 ? `${waitS}s` : 'Submit answer'}
+          </button>
+        )}
         <span className="text-xs text-slate-500">{mark ? 'Click again to move your mark.' : 'Click where you think it moved.'}</span>
       </div>
       {failure && <Failure f={failure} waitS={waitS} />}
@@ -192,7 +203,8 @@ export default function GameDialog({ onClose }: { onClose: () => void }) {
   const [roundsWanted, setRoundsWanted] = useState(3)
   const [session, setSession] = useState<GameSession | null>(null)
   const [index, setIndex] = useState(0)
-  const [results, setResults] = useState<{ result: GuessResult; mark: GamePoint }[]>([])
+  // One slot per round. A slot stays empty when the server already had that round's answer (a 409).
+  const [results, setResults] = useState<({ result: GuessResult; mark: GamePoint } | undefined)[]>([])
   const [starting, setStarting] = useState(false)
   const [failure, setFailure] = useState<GameFailure | null>(null)
   const [waitS, setWait] = useCountdown(null)
@@ -264,7 +276,7 @@ export default function GameDialog({ onClose }: { onClose: () => void }) {
   }
 
   const round = session?.rounds[index]
-  const total = results.reduce((sum, r) => sum + r.result.score, 0)
+  const total = results.reduce((sum, r) => sum + (r?.result.score ?? 0), 0)
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Find what moves">
@@ -294,6 +306,7 @@ export default function GameDialog({ onClose }: { onClose: () => void }) {
                 {starting ? 'Starting…' : waitS > 0 ? `${waitS}s` : 'Start'}
               </button>
             </div>
+            {starting && <LoadingPhrase category="game" />}
             {failure && <Failure f={failure} waitS={waitS} />}
             <button onClick={() => setShowBoard(s => !s)} aria-expanded={showBoard} className="text-xs text-slate-400 underline">
               {showBoard ? 'Hide the leaderboard' : 'See the leaderboard'}
@@ -309,9 +322,21 @@ export default function GameDialog({ onClose }: { onClose: () => void }) {
             sessionId={session.session_id}
             index={index}
             total={session.rounds.length}
+            last={index + 1 >= session.rounds.length}
             onDone={(result, mark) => {
-              setResults(r => [...r, { result, mark }])
+              setResults(r => {
+                const next = [...r]
+                next[index] = { result, mark }
+                return next
+              })
               setStage('result')
+            }}
+            onSkip={() => {
+              if (index + 1 >= session.rounds.length) setStage('summary')
+              else {
+                setIndex(i => i + 1)
+                setStage('round')
+              }
             }}
             onLost={f => {
               reset()
@@ -320,11 +345,11 @@ export default function GameDialog({ onClose }: { onClose: () => void }) {
           />
         )}
 
-        {stage === 'result' && session && round && results.length > 0 && (
+        {stage === 'result' && session && round && results[index] && (
           <ResultView
             round={round}
-            result={results[results.length - 1].result}
-            mark={results[results.length - 1].mark}
+            result={results[index].result}
+            mark={results[index].mark}
             last={index + 1 >= session.rounds.length}
             onNext={() => {
               if (index + 1 >= session.rounds.length) setStage('summary')
@@ -343,7 +368,7 @@ export default function GameDialog({ onClose }: { onClose: () => void }) {
               {session.rounds.map((r, i) => (
                 <li key={r.round_id} className="flex justify-between rounded bg-slate-800/60 px-2 py-1">
                   <span>Round {i + 1} · {DIFFICULTY_LABEL[r.difficulty]} · {r.target_name}</span>
-                  <span>{results[i] ? `${results[i].result.hit ? 'found' : 'missed'} · ${results[i].result.score}` : 'not played'}</span>
+                  <span>{results[i] ? `${results[i].result.hit ? 'found' : 'missed'} · ${results[i].result.score}` : 'answered, result not shown'}</span>
                 </li>
               ))}
             </ul>

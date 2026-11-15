@@ -3,10 +3,11 @@ import type { TargetSummary } from '../types/api'
 const years = (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'year' : 'years'}`
 
 /**
- * "The light you see left this object about 6 years ago". Built here from the numbers (not from
- * the backend's own sentence, which is not in English yet). Uncertain distances say "roughly".
+ * The subtitle for an object. The backend's own sentence (`story_es`, English despite the name) is
+ * shown as it comes. Only if it is missing do we build a similar one from the numbers.
  */
 export function lightStory(t: TargetSummary | undefined): string | null {
+  if (t?.story_es) return t.story_es
   if (t?.light_left_years_ago == null) return null
   return t.distance_uncertain
     ? `The light you see left this object roughly ${years(t.light_left_years_ago)} ago (its distance is uncertain).`

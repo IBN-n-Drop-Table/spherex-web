@@ -1,6 +1,5 @@
 import type { JobProgress } from '../lib/jobs'
 import { useRotatingPhrase } from '../hooks/useRotatingPhrase'
-import { GENERIC_PHRASES, SUBTRACTION_PHRASES } from '../lib/loadingPhrases'
 
 const STAGE_LABEL: Record<string, string> = {
   queued: 'Queued',
@@ -15,7 +14,7 @@ const STAGE_LABEL: Record<string, string> = {
 /** Stage, percentage, ETA and the backend's own message for a running live job. */
 export default function JobProgressBar({ job, fallbackText }: { job: JobProgress | null; fallbackText: string }) {
   const pct = Math.round((job?.progress ?? 0) * 100)
-  const phrase = useRotatingPhrase(job?.stage === 'difference' ? SUBTRACTION_PHRASES : GENERIC_PHRASES)
+  const phrase = useRotatingPhrase(job?.stage === 'difference' ? 'subtraction' : 'generic')
   return (
     <div className="space-y-2 text-sm">
       <div className="flex justify-between">

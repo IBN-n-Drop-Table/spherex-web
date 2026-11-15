@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { getChatSuggestions } from '../api/spherex'
 import { MESSAGE_MAX, useChat } from '../hooks/useChat'
+import ChatText from './ChatText'
+import LoadingPhrase from './LoadingPhrase'
+import { catalogAnswer, objectsNear, simbadPaused } from '../lib/simbad'
 import type { ChatTone } from '../types/api'
 
 interface Props {
@@ -8,6 +11,8 @@ interface Props {
   targetKey: string | null
   /** What is on screen: layer, caveats... The server also reads science_note / quality / saturated / weak_signal from it. */
   context: Record<string, unknown>
+  /** Centre of the view when it is NOT one of the five objects: the catalogue lookup is offered for it. */
+  position?: { ra: number; dec: number }
   onClose: () => void
 }
 
@@ -20,11 +25,12 @@ const TONES: { id: ChatTone; label: string; hint: string }[] = [
 const DISCLAIMER = 'AI assistant: it can be wrong. Findings need human verification.'
 
 /** Chat that explains what is on screen. Answers always carry the server's caveats next to them. */
-export default function ChatPanel({ targetKey, context, onClose }: Props) {
+export default function ChatPanel({ targetKey, context, position, onClose }: Props) {
   const [tone, setTone] = useState<ChatTone>('easy')
   const [draft, setDraft] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const chat = useChat(context, tone)
+  const [lookingUp, setLookingUp] = useState(false)
   const lastRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -38,11 +44,27 @@ export default function ChatPanel({ targetKey, context, onClose }: Props) {
     lastRef.current?.scrollIntoView({ block: 'start' })
   }, [chat.messages.length])
 
-  const blocked = chat.busy || chat.waitS > 0
+  const blocked = chat.busy || chat.waitS > 0 || lookingUp
   const ask = (text: string) => {
     if (blocked) return
     void chat.send(text)
     setDraft('')
+  }
+  // Any other position: ask SIMBAD directly and list what is catalogued there. No AI is involved, so
+  // nothing can be invented, and it works without keys.
+  const askCatalog = async () => {
+    if (!position || blocked) return
+    if (simbadPaused()) return chat.setError('SIMBAD could not be reached a moment ago. Try again in a few minutes.')
+    setLookingUp(true)
+    chat.setError(null)
+    try {
+      const objects = await objectsNear(position.ra, position.dec)
+      chat.addLocal('What is catalogued near the centre of this view?', catalogAnswer(objects), ['SIMBAD'])
+    } catch {
+      chat.setError('SIMBAD could not be reached. Try again in a few minutes.')
+    } finally {
+      setLookingUp(false)
+    }
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -77,13 +99,36 @@ export default function ChatPanel({ targetKey, context, onClose }: Props) {
         <span className="text-slate-500">{TONES.find(t => t.id === tone)?.hint}</span>
       </div>
 
-      <button
-        onClick={() => ask('Explain what I see in this view.')}
-        disabled={blocked}
-        className="mt-2 w-full shrink-0 rounded bg-sky-700 px-3 py-1.5 text-sm hover:bg-sky-600 disabled:opacity-50"
-      >
-        Explain what I see
-      </button>
+      <div className="mt-2 flex shrink-0 gap-2">
+        <button
+          onClick={() => ask('Explain what I see in this view.')}
+          disabled={blocked}
+          className="flex-1 rounded bg-sky-700 px-3 py-1.5 text-sm hover:bg-sky-600 disabled:opacity-50"
+        >
+          Explain what I see
+        </button>
+        {targetKey && (
+          // The server only adds catalogue (SIMBAD) facts for one of the five objects, so only then.
+          <button
+            onClick={() => ask('What else is near this object?')}
+            disabled={blocked}
+            title="Other catalogued objects around it, from SIMBAD"
+            className="flex-1 rounded bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600 disabled:opacity-50"
+          >
+            What else is near?
+          </button>
+        )}
+        {!targetKey && position && (
+          <button
+            onClick={askCatalog}
+            disabled={blocked}
+            title="Objects SIMBAD lists around the centre of this view"
+            className="flex-1 rounded bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600 disabled:opacity-50"
+          >
+            {lookingUp ? 'Asking SIMBAD…' : 'What is catalogued here?'}
+          </button>
+        )}
+      </div>
 
       {chat.messages.length === 0 && suggestions.length > 0 && (
         <div className="mt-2 flex min-h-0 flex-wrap gap-1 overflow-y-auto">
@@ -109,7 +154,14 @@ export default function ChatPanel({ targetKey, context, onClose }: Props) {
               </p>
             ) : (
               <div key={m.id} ref={i === chat.messages.length - 1 ? lastRef : undefined} className="mr-4 space-y-1">
-                <p className="whitespace-pre-wrap rounded bg-slate-900 px-2 py-1 text-slate-200">{m.text}</p>
+                <div className="rounded bg-slate-900 px-2 py-1 text-slate-200">
+                  <ChatText text={m.text} />
+                </div>
+                {m.reply?.sources && m.reply.sources.length > 0 && (
+                  <p className="text-[11px] text-slate-400">
+                    Source: {m.reply.sources.join(', ')} · catalogue entries, not SPHEREx detections.
+                  </p>
+                )}
                 {m.reply?.fallback && (
                   <p className="text-[11px] text-slate-500">Pre-written answer, not generated by the AI.</p>
                 )}
@@ -123,7 +175,7 @@ export default function ChatPanel({ targetKey, context, onClose }: Props) {
               </div>
             ),
           )}
-          {chat.busy && <p className="text-slate-500">Thinking…</p>}
+          {chat.busy && <LoadingPhrase category="chat" className="text-xs" />}
         </div>
       )}
 

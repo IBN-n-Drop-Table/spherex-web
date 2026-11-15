@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react'
 import { getCredits } from '../api/spherex'
+import { LOCAL_CREDITS } from '../data/credits'
 import type { CreditsResponse } from '../types/api'
 
 /** Data acknowledgements (required by the hackathon rules and by the data providers' terms). */
 export default function Credits({ raised = false }: { raised?: boolean }) {
   const [open, setOpen] = useState(false)
-  // The backend's own list (SPHEREx / Gaia / WISE with DOIs) is loaded the first time it is opened;
-  // the fixed text below stays as the fallback when the server is unreachable.
-  const [official, setOfficial] = useState<CreditsResponse | null>(null)
+  // The backend's own list is loaded the first time the panel opens; until then (or if the server is
+  // asleep or down) the local copy is shown, so the citations are never missing.
+  const [fromServer, setFromServer] = useState<CreditsResponse | null>(null)
+  const credits = fromServer ?? LOCAL_CREDITS
   useEffect(() => {
-    if (!open || official) return
+    if (!open || fromServer) return
     const ctrl = new AbortController()
-    getCredits(ctrl.signal).then(setOfficial, () => undefined)
+    getCredits(ctrl.signal).then(setFromServer, () => undefined)
     return () => ctrl.abort()
-  }, [open, official])
+  }, [open, fromServer])
   return (
     <div className={`absolute left-3 z-10 max-w-md text-[11px] leading-snug text-slate-300 ${
         raised ? 'bottom-12' : 'bottom-3'
@@ -41,12 +43,11 @@ export default function Credits({ raised = false }: { raised?: boolean }) {
             <strong className="text-slate-100">SPHEREx data:</strong> exposures from the SPHEREx mission,
             retrieved from the NASA/IPAC Infrared Science Archive (IRSA) and processed by this project.
           </p>
-          {official && (
-            <div className="space-y-1 border-t border-slate-700 pt-2">
-              <p>{official.acknowledgement}</p>
+          <div className="space-y-1 border-t border-slate-700 pt-2">
+              <p>{credits.acknowledgement}</p>
               <strong className="text-slate-100">Data used</strong>
               <ul className="list-disc space-y-1 pl-4">
-                {official.data_credits.map(c => (
+                {credits.data_credits.map(c => (
                   <li key={c.id}>
                     {c.dataset} — {c.source}. {c.used_for}.{' '}
                     {c.citation ? `${c.citation}. ` : ''}
@@ -56,9 +57,12 @@ export default function Credits({ raised = false }: { raised?: boolean }) {
                   </li>
                 ))}
               </ul>
-              {official.software.length > 0 && <p>Software: {official.software.join(', ')}.</p>}
-            </div>
-          )}
+              {credits.software.length > 0 && <p>Software: {credits.software.join(', ')}.</p>}
+          </div>
+          <p>
+            This research has made use of the SIMBAD database, operated at CDS, Strasbourg, France (Wenger et al.
+            2000, A&amp;AS 143, 9). Used for the distance of points that are not one of the five objects.
+          </p>
           <p>
             <strong className="text-slate-100">Viewer:</strong>{' '}
             <a className="underline hover:text-sky-300" href="https://aladin.cds.unistra.fr/AladinLite/" target="_blank" rel="noreferrer">

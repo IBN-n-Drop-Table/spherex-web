@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createSkyPatchJob, getJob } from '../api/spherex'
 import { ApiError } from '../api/http'
-import { awaitJob, JobFailedError, type JobProgress } from '../lib/jobs'
+import { awaitJob, JobFailedError, retryIfLost, type JobProgress } from '../lib/jobs'
 import type { SkyPatchResponse, SkyQuery } from '../types/api'
 
 export type { JobProgress } from '../lib/jobs'
@@ -48,13 +48,14 @@ export function useSkyPatch(q: SkyQuery | null): SkyPatchState {
   useEffect(() => {
     if (key === null) return
     const ctrl = new AbortController()
-    const run = async (): Promise<SkyPatchResponse> => {
-      const first = await createSkyPatchJob({ ra, dec, fov }, ctrl.signal)
-      return awaitJob<SkyPatchResponse>(first, id => getJob(id, ctrl.signal), {
-        signal: ctrl.signal,
-        onProgress: setJob,
-      })
-    }
+    const run = (): Promise<SkyPatchResponse> =>
+      retryIfLost(async () => {
+        const first = await createSkyPatchJob({ ra, dec, fov }, ctrl.signal)
+        return awaitJob<SkyPatchResponse>(first, id => getJob(id, ctrl.signal), {
+          signal: ctrl.signal,
+          onProgress: setJob,
+        })
+      }, ctrl.signal)
 
     run()
       .then(data => setSettled({ key, data, error: null }))
