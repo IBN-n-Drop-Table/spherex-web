@@ -123,3 +123,10 @@ export const LocateIcon = line(
   </>,
 )
 export const PlusIcon = line(<path d="M12 5v14M5 12h14" />)
+/** Keyboard: for the shortcuts list. */
+export const KeyboardIcon = line(
+  <>
+    <rect x="2.5" y="6" width="19" height="12" rx="1.5" />
+    <path d="M6 9.5h.01M9 9.5h.01M12 9.5h.01M15 9.5h.01M18 9.5h.01M6 12.5h.01M18 12.5h.01M8.5 15h7" />
+  </>,
+)

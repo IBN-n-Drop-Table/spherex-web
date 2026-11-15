@@ -343,6 +343,15 @@ export function Dialog({ title, onClose, children, width = 'max-w-2xl', raised =
   )
 }
 
+/** A key on the keyboard, as shown in hints and in the shortcuts list. */
+export function Kbd({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <kbd className={cx('inline-flex min-w-5 items-center justify-center rounded-ctl border border-rule-strong bg-sunken px-1 font-mono text-2xs leading-4 text-muted', className)}>
+      {children}
+    </kbd>
+  )
+}
+
 /** A tiny coloured dot for legends (the fonts have no "●"). */
 export function Dot({ color, className }: { color: string; className?: string }) {
   return <span aria-hidden="true" className={cx('inline-block h-2 w-2 rounded-full align-baseline', className)} style={{ background: color }} />

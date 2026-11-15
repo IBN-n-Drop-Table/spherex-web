@@ -12,6 +12,8 @@ import { TARGET_FOV_ARCMIN, targetPosition, type Target } from './data/targets'
 import CreditsDialog from './components/Credits'
 import GameDialog from './components/GameDialog'
 import { useSkyPointing } from './hooks/useSkyPointing'
+import { useHotkeys } from './hooks/useHotkeys'
+import ShortcutsDialog from './components/ShortcutsDialog'
 import SkyAimPanel from './components/SkyAimPanel'
 import TopBar from './components/TopBar'
 import ToolRail, { type ToolGroup } from './components/ToolRail'
@@ -43,6 +45,7 @@ export default function Viewer({ onHome }: { onHome: () => void }) {
   const [wipe, setWipe] = useState(startTool === 'compare')
   const [gameOpen, setGameOpen] = useState(startTool === 'play')
   const [creditsOpen, setCreditsOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [footprint, setFootprint] = useState<SkyFootprint | null>(null)
   const [dock, setDock] = useState<SkyDock>(startTool && SKY_DOCKS.includes(startTool) ? (startTool as SkyDock) : null)
 
@@ -96,22 +99,43 @@ export default function Viewer({ onHome }: { onHome: () => void }) {
     setUrl({ ...(live ?? {}), view: 'data' })
   }
 
+  // Keyboard: the same everywhere (`?`, `/`) and the sky map's tools (letters shown in the rail).
+  const onSky = view === 'sky'
+  useHotkeys([
+    { keys: ['?'], run: () => setShortcutsOpen(true) },
+    {
+      keys: ['/'],
+      run: () => {
+        const field = document.querySelector<HTMLInputElement>('input[aria-label="Right ascension"]')
+        field?.focus()
+        field?.select()
+      },
+    },
+    { keys: ['p'], run: () => toggleDock('objects'), enabled: onSky },
+    { keys: ['u'], run: () => toggleDock('aim'), enabled: onSky },
+    { keys: ['c'], run: () => setWipe(w => !w), enabled: onSky },
+    { keys: ['g'], run: () => setGameOpen(true), enabled: onSky },
+    { keys: ['s'], run: () => toggleDock('sightings'), enabled: onSky },
+    { keys: ['d'], run: openData, enabled: onSky },
+    { keys: ['Escape'], run: () => switchDock(null), enabled: onSky && dock !== null },
+  ])
+
   const skyTools: ToolGroup[] = [
     {
       label: 'Explore',
       tools: [
-        { id: 'objects', label: 'Points of interest', short: 'Objects', hint: 'Five objects to start with', icon: <TargetIcon />, active: dock === 'objects', onClick: () => toggleDock('objects') },
-        { id: 'aim', label: 'Point at the sky', short: 'Above me', hint: 'The sky above you, right now', icon: <AimIcon />, active: dock === 'aim', onClick: () => toggleDock('aim') },
-        { id: 'compare', label: 'Eye vs infrared', short: 'Compare', hint: 'Slide a bar: visible light against infrared', icon: <CompareIcon />, active: wipe, onClick: () => setWipe(w => !w) },
+        { id: 'objects', label: 'Points of interest', short: 'Objects', hint: 'Five objects to start with', icon: <TargetIcon />, active: dock === 'objects', shortcut: 'p', onClick: () => toggleDock('objects') },
+        { id: 'aim', label: 'Point at the sky', short: 'Above me', hint: 'The sky above you, right now', icon: <AimIcon />, active: dock === 'aim', shortcut: 'u', onClick: () => toggleDock('aim') },
+        { id: 'compare', label: 'Eye vs infrared', short: 'Compare', hint: 'Slide a bar: visible light against infrared', icon: <CompareIcon />, active: wipe, shortcut: 'c', onClick: () => setWipe(w => !w) },
       ],
     },
     {
       label: 'Play',
-      tools: [{ id: 'play', label: 'Find what moves', short: 'Play', hint: 'A short game on real images', icon: <BlinkIcon />, onClick: () => setGameOpen(true) }],
+      tools: [{ id: 'play', label: 'Find what moves', short: 'Play', hint: 'A short game on real images', icon: <BlinkIcon />, shortcut: 'g', onClick: () => setGameOpen(true) }],
     },
     {
       label: 'Community',
-      tools: [{ id: 'sightings', label: 'Sightings', short: 'Sightings', hint: 'Candidates reported by people', icon: <PinIcon />, active: dock === 'sightings', onClick: () => toggleDock('sightings') }],
+      tools: [{ id: 'sightings', label: 'Sightings', short: 'Sightings', hint: 'Candidates reported by people', icon: <PinIcon />, active: dock === 'sightings', shortcut: 's', onClick: () => toggleDock('sightings') }],
     },
   ]
 
@@ -124,6 +148,7 @@ export default function Viewer({ onHome }: { onHome: () => void }) {
         onCoords={c => setUrl(c)}
         onHome={onHome}
         onCredits={() => setCreditsOpen(true)}
+        onShortcuts={() => setShortcutsOpen(true)}
       />
 
       {view === 'sky' ? (
@@ -182,7 +207,8 @@ export default function Viewer({ onHome }: { onHome: () => void }) {
             <Button
               variant="primary"
               onClick={openData}
-              title="Open the SPHEREx images of the place at the centre of the map"
+              title="Open the SPHEREx images of the place at the centre of the map (D)"
+              aria-keyshortcuts="D"
               className={cx(
                 'absolute bottom-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap shadow-dialog md:bottom-5',
                 dock && 'max-md:hidden md:left-[calc(50%+11.25rem)]',
@@ -214,6 +240,7 @@ export default function Viewer({ onHome }: { onHome: () => void }) {
 
       {gameOpen && <GameDialog onClose={() => setGameOpen(false)} />}
       {creditsOpen && <CreditsDialog onClose={() => setCreditsOpen(false)} />}
+      {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
     </main>
   )
 }

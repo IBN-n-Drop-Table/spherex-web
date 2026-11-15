@@ -116,6 +116,34 @@ export default function SkyAimPanel({ onPoint, onGoTo, sensors, onClose }: Props
       className="h-full"
     >
       <div className="space-y-5 text-xs">
+        {/* On a phone the sensors come first: it is the natural way to use it. The sliders stay below. */}
+        {sensors.supported && (
+          <section className="space-y-2">
+            <h3 className="label-caps text-faint">Point your phone</h3>
+            <p className="text-muted">Hold the phone up to the sky: the map follows where its back points. It asks for motion and location access.</p>
+            <Button
+              variant={sensorsOn ? 'secondary' : 'primary'}
+              onClick={
+                sensorsOn
+                  ? sensors.stop
+                  : () => {
+                      setMinimized(true)
+                      sensors.start()
+                    }
+              }
+              pressed={sensors.status === 'active' ? true : undefined}
+              className="w-full"
+            >
+              {sensorsOn ? 'Stop following my phone' : 'Point my phone at the sky'}
+            </Button>
+            {sensors.status === 'starting' && <p className="text-muted">Waiting for the sensors…</p>}
+            {sensors.status === 'active' && (
+              <Callout tone="caution">Approximate: phone compasses are off by several degrees. If it points the wrong way, wave the phone in a figure 8.</Callout>
+            )}
+            {sensors.status === 'error' && sensors.error && <Callout tone="error">{sensors.error}</Callout>}
+          </section>
+        )}
+        {sensors.supported && <h3 className="border-t border-rule pt-4 font-display text-base italic text-muted">Or aim by hand</h3>}
         <section className="space-y-2">
           <h3 className="label-caps text-faint">1 · Where are you?</h3>
           <Button onClick={locate} disabled={locating} className="w-full">
@@ -169,7 +197,7 @@ export default function SkyAimPanel({ onPoint, onGoTo, sensors, onClose }: Props
           </div>
         </section>
 
-        {!place && <Callout>Set your location (step 1) and the map will follow your choices.</Callout>}
+        {!place && !sensorsOn && <Callout>Set your location (step 1) and the map will follow your choices.</Callout>}
         {place && aim.alt < 0 && <Callout tone="caution">That is below the horizon: you would be looking at the ground.</Callout>}
         {sky && nearest && (
           <p className="border-t border-rule pt-3 text-muted">
@@ -178,30 +206,6 @@ export default function SkyAimPanel({ onPoint, onGoTo, sensors, onClose }: Props
           </p>
         )}
 
-        {sensors.supported && (
-          <section className="space-y-2 border-t border-rule pt-4">
-            <h3 className="label-caps text-faint">Or let the phone aim</h3>
-            <Button
-              onClick={
-                sensorsOn
-                  ? sensors.stop
-                  : () => {
-                      setMinimized(true)
-                      sensors.start()
-                    }
-              }
-              pressed={sensors.status === 'active' ? true : undefined}
-              className="w-full"
-            >
-              {sensorsOn ? 'Stop using my phone’s sensors' : 'Use my phone’s sensors instead'}
-            </Button>
-            {sensors.status === 'starting' && <p className="text-muted">Waiting for the sensors…</p>}
-            {sensors.status === 'active' && (
-              <Callout tone="caution">Approximate: phone compasses are off by several degrees. If it points the wrong way, wave the phone in a figure 8.</Callout>
-            )}
-            {sensors.status === 'error' && sensors.error && <Callout tone="error">{sensors.error}</Callout>}
-          </section>
-        )}
       </div>
     </Panel>
   )

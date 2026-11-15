@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { fmt } from '../lib/coords'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import CoordinatesPanel, { type Coords } from './CoordinatesPanel'
-import { Button, Segmented } from './ui'
-import { ChevronDownIcon, ChevronUpIcon } from './icons'
+import { Button, IconButton, Segmented } from './ui'
+import { ChevronDownIcon, ChevronUpIcon, KeyboardIcon } from './icons'
 import Logo from './Logo'
 
 type View = 'sky' | 'data'
@@ -16,13 +16,15 @@ interface Props {
   /** Back to the landing page. */
   onHome: () => void
   onCredits: () => void
+  /** Opens the list of keyboard shortcuts. */
+  onShortcuts: () => void
 }
 
 /**
  * The chrome both views share: the name (a way back to the landing page), the Sky map /
  * SPHEREx data switch, the coordinates search and the credits, always in the same place.
  */
-export default function TopBar({ view, onView, coords, onCoords, onHome, onCredits }: Props) {
+export default function TopBar({ view, onView, coords, onCoords, onHome, onCredits, onShortcuts }: Props) {
   const roomy = useMediaQuery('(min-width: 1180px)') // the search fits in the bar itself
   const wide = useMediaQuery('(min-width: 768px)') // else a second row, or a fold-out on phones
   const [editing, setEditing] = useState(false)
@@ -57,6 +59,9 @@ export default function TopBar({ view, onView, coords, onCoords, onHome, onCredi
         />
         <div className="ml-auto flex items-center gap-3">
           {roomy && <CoordinatesPanel key={formKey} value={coords} onSubmit={submit} />}
+          <IconButton label="Keyboard shortcuts (?)" onClick={onShortcuts} aria-keyshortcuts="?" className="max-md:hidden">
+            <KeyboardIcon />
+          </IconButton>
           <Button variant="quiet" size="sm" onClick={onCredits} title="Data used and who to thank">
             Credits
           </Button>

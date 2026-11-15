@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cx } from './classes'
+import { Kbd } from './ui'
 
 export interface Tool {
   id: string
@@ -12,6 +13,8 @@ export interface Tool {
   icon: ReactNode
   active?: boolean
   disabled?: boolean
+  /** Its keyboard shortcut (a letter), shown on wide screens. */
+  shortcut?: string
   onClick: () => void
 }
 
@@ -48,7 +51,8 @@ export default function ToolRail({ groups, header, label = 'Tools' }: Props) {
               onClick={t.onClick}
               disabled={t.disabled}
               aria-pressed={t.active ?? false}
-              title={t.hint}
+              title={t.shortcut ? `${t.hint} (${t.shortcut.toUpperCase()})` : t.hint}
+              aria-keyshortcuts={t.shortcut?.toUpperCase()}
               className={cx(
                 'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-2xs transition-colors duration-150 disabled:opacity-40',
                 'md:min-h-0 md:w-full md:flex-none md:flex-row md:items-start md:justify-start md:gap-3 md:rounded-ctl md:px-2 md:py-2 md:text-left md:text-sm',
@@ -56,11 +60,12 @@ export default function ToolRail({ groups, header, label = 'Tools' }: Props) {
               )}
             >
               <span className="shrink-0 md:mt-0.5">{t.icon}</span>
-              <span className="min-w-0">
+              <span className="min-w-0 md:flex-1">
                 <span className="block md:hidden">{t.short}</span>
                 <span className={cx('hidden md:block', t.active ? 'text-accent' : 'text-paper')}>{t.label}</span>
                 <span className="hidden text-2xs leading-snug text-faint md:block">{t.hint}</span>
               </span>
+              {t.shortcut && <Kbd className="mt-0.5 hidden md:inline-flex">{t.shortcut.toUpperCase()}</Kbd>}
             </button>
           ))}
         </div>

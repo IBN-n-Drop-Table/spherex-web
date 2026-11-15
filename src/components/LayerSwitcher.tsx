@@ -25,6 +25,8 @@ const HINT: Record<string, string> = {
  * to see what changed between visits.
  */
 export default function LayerSwitcher({ filters, layer, onChange, disabled = false, unavailable = [], name = l => l }: Props) {
+  const order = [LAYER_BASE, ...filters, LAYER_DIFF, LAYER_DETECT]
+  const key = (l: string) => order.indexOf(l) + 1 // the number key that picks it
   const label = (l: string) => (l === LAYER_BASE ? 'Infrared' : l === LAYER_DIFF ? 'Difference' : l === LAYER_DETECT ? 'Detections (beta)' : name(l))
   const group = (title: string, layers: string[]) => (
     <div className="flex items-center gap-2">
@@ -37,7 +39,8 @@ export default function LayerSwitcher({ filters, layer, onChange, disabled = fal
             onClick={() => onChange(l)}
             disabled={disabled || unavailable.includes(l)}
             aria-pressed={layer === l}
-            title={unavailable.includes(l) ? 'No exposure of this visit covers this molecule' : (HINT[l] ?? 'Only the light at the wavelengths where this molecule leaves its mark')}
+            title={unavailable.includes(l) ? 'No exposure of this visit covers this molecule' : `${HINT[l] ?? 'Only the light at the wavelengths where this molecule leaves its mark'} (${key(l)})`}
+            aria-keyshortcuts={String(key(l))}
             className={cx(
               'min-h-11 whitespace-nowrap px-3 text-sm transition-colors duration-150 disabled:opacity-40 md:min-h-8',
               i > 0 && 'border-l border-rule-strong',

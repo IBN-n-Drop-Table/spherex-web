@@ -7,7 +7,7 @@ import { nearbyStarText } from '../lib/simbad'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSkyPatch } from '../hooks/useSkyPatch'
 import { useAutoplay } from '../hooks/useAutoplay'
-import { LAYER_DETECT, LAYER_DIFF } from '../lib/layers'
+import { LAYER_BASE, LAYER_DETECT, LAYER_DIFF } from '../lib/layers'
 import { buildDiffFrames, totalFrame, type DiffFrame } from '../lib/diffFrames'
 import { fmt } from '../lib/coords'
 import SkyViewer from './SkyViewer'
@@ -28,6 +28,7 @@ import JobProgressBar from './JobProgressBar'
 import TimelineBar, { type TimelineFrame } from './TimelineBar'
 import LayerSwitcher from './LayerSwitcher'
 import ToolRail, { type ToolGroup } from './ToolRail'
+import { useHotkeys } from '../hooks/useHotkeys'
 import { Button, Callout, Check, LinkButton } from './ui'
 import { cx } from './classes'
 import { ChatIcon, CurveIcon, PinIcon, SpectrumIcon } from './icons'
@@ -348,21 +349,50 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
     </div>
   )
 
+  // Keyboard: the player, the layers, the panels and the sky around (all listed under `?`).
+  const layerOrder = [LAYER_BASE, ...filters, LAYER_DIFF, LAYER_DETECT]
+  const toggleTab = (t: Tab) => openTab(tab === t ? null : t)
+  const pickLayer = (n: number) => {
+    const l = layerOrder[n - 1]
+    if (l && !unavailable.includes(l)) onLayerChange(l)
+  }
+  const hasData = data !== null
+  const many = timelineFrames.length > 1
+  useHotkeys([
+    { keys: ['ArrowLeft'], run: player.prev, enabled: many },
+    { keys: ['ArrowRight'], run: player.next, enabled: many },
+    { keys: [' ', 'k'], run: player.toggle, enabled: many },
+    { keys: ['Home'], run: () => player.setIndex(0), enabled: many },
+    { keys: ['End'], run: () => player.setIndex(timelineFrames.length - 1), enabled: many },
+    { keys: ['-', '_'], run: () => setFpsIdx(i => Math.max(0, i - 1)), enabled: hasData },
+    { keys: ['+', '='], run: () => setFpsIdx(i => Math.min(FPS_OPTIONS.length - 1, i + 1)), enabled: hasData },
+    ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => ({ keys: [String(n)], run: () => pickLayer(n), enabled: hasData && n <= layerOrder.length })),
+    { keys: ['i'], run: () => setInfoOpen(o => !o), enabled: diffLike && Boolean(activeDiff) },
+    { keys: ['s'], run: () => toggleTab('spectrum'), enabled: hasData },
+    { keys: ['l'], run: () => toggleTab('lightcurve'), enabled: hasData },
+    { keys: ['a'], run: () => toggleTab('chat'), enabled: hasData },
+    { keys: ['c'], run: () => toggleTab('community'), enabled: hasData },
+    { keys: ['o'], run: () => setShowAround(a => !a), enabled: hasData },
+    { keys: ['h'], run: () => setShowPicture(v => !v), enabled: hasData && showAround },
+    { keys: ['r'], run: () => aroundRef.current?.reset(), enabled: hasData && showAround },
+    { keys: ['Escape'], run: () => openTab(null), enabled: tab !== null },
+  ])
+
   const tools: ToolGroup[] = [
     {
       label: 'Look closer',
       tools: [
-        { id: 'spectrum', label: 'Spectrum', short: 'Spectrum', hint: 'Its light, split into 102 infrared colours', icon: <SpectrumIcon />, active: tab === 'spectrum', disabled: !data, onClick: () => openTab(tab === 'spectrum' ? null : 'spectrum') },
-        { id: 'lightcurve', label: 'Light curve', short: 'Brightness', hint: 'Its brightness at every visit', icon: <CurveIcon />, active: tab === 'lightcurve', disabled: !data, onClick: () => openTab(tab === 'lightcurve' ? null : 'lightcurve') },
+        { id: 'spectrum', label: 'Spectrum', short: 'Spectrum', hint: 'Its light, split into 102 infrared colours', icon: <SpectrumIcon />, active: tab === 'spectrum', disabled: !data, shortcut: 's', onClick: () => openTab(tab === 'spectrum' ? null : 'spectrum') },
+        { id: 'lightcurve', label: 'Light curve', short: 'Brightness', hint: 'Its brightness at every visit', icon: <CurveIcon />, active: tab === 'lightcurve', disabled: !data, shortcut: 'l', onClick: () => openTab(tab === 'lightcurve' ? null : 'lightcurve') },
       ],
     },
     {
       label: 'Ask',
-      tools: [{ id: 'chat', label: 'Ask about it', short: 'Ask', hint: 'What you see, explained in plain words', icon: <ChatIcon />, active: tab === 'chat', disabled: !data, onClick: () => openTab(tab === 'chat' ? null : 'chat') }],
+      tools: [{ id: 'chat', label: 'Ask about it', short: 'Ask', hint: 'What you see, explained in plain words', icon: <ChatIcon />, active: tab === 'chat', disabled: !data, shortcut: 'a', onClick: () => openTab(tab === 'chat' ? null : 'chat') }],
     },
     {
       label: 'Community',
-      tools: [{ id: 'community', label: 'Sightings here', short: 'Sightings', hint: 'What people reported, and your own report', icon: <PinIcon />, active: tab === 'community', disabled: !data, onClick: () => openTab(tab === 'community' ? null : 'community') }],
+      tools: [{ id: 'community', label: 'Sightings here', short: 'Sightings', hint: 'What people reported, and your own report', icon: <PinIcon />, active: tab === 'community', disabled: !data, shortcut: 'c', onClick: () => openTab(tab === 'community' ? null : 'community') }],
     },
   ]
 
@@ -540,19 +570,23 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
                 <button
                   onClick={() => setShowPicture(v => !v)}
                   aria-pressed={!showPicture}
+                  title="Show or hide the SPHEREx picture over the sky (H)"
+                  aria-keyshortcuts="H"
                   className="label-caps border border-rule-strong bg-ink/80 px-2 py-1 text-2xs text-paper hover:bg-ink"
                 >
                   {showPicture ? 'Hide SPHEREx' : 'Show SPHEREx'}
                 </button>
               )}
               {showAround && (
-                <button onClick={() => aroundRef.current?.reset()} className="label-caps border border-rule-strong bg-ink/80 px-2 py-1 text-2xs text-paper hover:bg-ink">
+                <button onClick={() => aroundRef.current?.reset()} title="Back to the patch (R)" aria-keyshortcuts="R" className="label-caps border border-rule-strong bg-ink/80 px-2 py-1 text-2xs text-paper hover:bg-ink">
                   Reset view
                 </button>
               )}
               <button
                 onClick={() => setShowAround(a => !a)}
                 aria-pressed={showAround}
+                title="Show or hide the sky around the picture (O)"
+                aria-keyshortcuts="O"
                 className="label-caps border border-rule-strong bg-ink/80 px-2 py-1 text-2xs text-paper hover:bg-ink"
               >
                 {showAround ? 'Hide surroundings' : 'Show surroundings'}
