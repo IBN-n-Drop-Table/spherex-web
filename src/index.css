@@ -1,1 +1,168 @@
+/* Self-hosted type (no CDN at runtime): Spectral for display, IBM Plex Sans for text,
+   IBM Plex Mono for coordinates and measured values. Latin subsets only. */
+@import "@fontsource/spectral/latin-400.css";
+@import "@fontsource/spectral/latin-400-italic.css";
+@import "@fontsource/spectral/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
 @import "tailwindcss";
+
+/*
+ * Design tokens. One warm near-black, one paper white, ONE accent (verdigris) for the primary
+ * action and the active state. Semantic colours follow the data: red = later visit, blue = earlier
+ * visit, amber = scientific caution. Surfaces are solid and separated by hairlines, not by blur.
+ */
+@theme {
+  --font-display: "Spectral", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --color-ink: #0c0b09; /* page */
+  --color-sunken: #070706; /* behind images, inputs */
+  --color-surface: #141310; /* bars, rails, panels */
+  --color-raised: #1e1c17; /* hover, selected rows */
+  --color-rule: #2f2c25; /* hairlines */
+  --color-rule-strong: #4c483d; /* control borders */
+  --color-paper: #ece6d6; /* text */
+  --color-muted: #aba390; /* secondary text */
+  --color-faint: #8b8473; /* tertiary text, still AA on ink */
+
+  --color-accent: #74c3b1;
+  --color-accent-strong: #97d8c8;
+  --color-accent-ink: #06201b; /* text on accent */
+  --color-accent-wash: #11302a; /* active state background */
+
+  --color-caution: #e7b355;
+  --color-caution-wash: #2a2210;
+  --color-danger: #ee877b;
+  --color-danger-wash: #2e1714;
+
+  --color-later: #f0766b; /* brighter in the later visit / where it is */
+  --color-earlier: #76a8f5; /* brighter in the earlier visit / where it was */
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --radius-ctl: 3px;
+  --shadow-dialog: 0 24px 64px rgb(0 0 0 / 0.6);
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --animate-rise: rise 180ms var(--ease-out-soft);
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background: var(--color-ink);
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  button,
+  [role="button"],
+  summary,
+  label[for],
+  select {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Range inputs: a hairline track and a paper thumb, the same everywhere. */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 1.5rem;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px;
+    background: var(--color-rule-strong);
+  }
+  input[type="range"]::-moz-range-track {
+    height: 2px;
+    background: var(--color-rule-strong);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: var(--color-paper);
+    border: 2px solid var(--color-ink);
+    box-shadow: 0 0 0 1px var(--color-paper);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-paper);
+    border: 2px solid var(--color-ink);
+    box-shadow: 0 0 0 1px var(--color-paper);
+  }
+  input[type="range"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  input[type="checkbox"] {
+    accent-color: var(--color-accent);
+    width: 1rem;
+    height: 1rem;
+  }
+
+  /* Thin, quiet scrollbars inside panels. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-rule-strong) transparent;
+  }
+}
+
+/* Small caps label used for section names and chart-style annotations. */
+@utility label-caps {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* Motion only explains things; people who ask for less motion get none of the decoration. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

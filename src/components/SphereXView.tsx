@@ -4,7 +4,7 @@ import { useTargetFacts } from '../hooks/useTargetFacts'
 import { findTarget, lightStory } from '../lib/story'
 import { useNearbyStar } from '../hooks/useNearbyStar'
 import { nearbyStarText } from '../lib/simbad'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useSkyPatch } from '../hooks/useSkyPatch'
 import { useAutoplay } from '../hooks/useAutoplay'
 import { LAYER_DETECT, LAYER_DIFF } from '../lib/layers'
@@ -26,6 +26,10 @@ import type { JobProgress } from '../hooks/useSkyPatch'
 import JobProgressBar from './JobProgressBar'
 import TimelineBar, { type TimelineFrame } from './TimelineBar'
 import LayerSwitcher from './LayerSwitcher'
+import ToolRail, { type ToolGroup } from './ToolRail'
+import { Button, Callout, Check, LinkButton } from './ui'
+import { cx } from './classes'
+import { ChatIcon, CurveIcon, PinIcon, SpectrumIcon } from './icons'
 
 const FPS_OPTIONS = [1, 2, 4, 12, 24]
 const NO_ANOMALIES: never[] = []
@@ -49,6 +53,18 @@ interface Props {
   onBack: () => void
   /** Escape hatch when there is no data here: jump to a known-good target. */
   onTryDefault: () => void
+  /** A tool named in the link (`&tool=spectrum`): opened once the data is there. */
+  startTool?: string | null
+}
+
+/** What the dock shows: one thing at a time. */
+type Tab = 'spectrum' | 'lightcurve' | 'chat' | 'community'
+const TABS: Record<string, Tab> = { spectrum: 'spectrum', lightcurve: 'lightcurve', ask: 'chat', chat: 'chat', community: 'community' }
+
+/** Molecule names with their subscripts (the fonts have no subscript digits). */
+function layerName(l: string): ReactNode {
+  const parts = l.split(/(\d)/)
+  return parts.length === 1 ? l : parts.map((x, i) => (/\d/.test(x) ? <sub key={i}>{x}</sub> : x))
 }
 
 /**
@@ -60,22 +76,33 @@ interface Props {
 /** Progress card for a live job (cold jobs take tens of seconds up to a few minutes). */
 function JobCard({ job }: { job: JobProgress | null }) {
   return (
-    <div className="absolute left-1/2 top-1/2 z-10 w-96 -translate-x-1/2 -translate-y-1/2 rounded bg-black/80 p-4 backdrop-blur">
+    <div className="absolute left-1/2 top-1/2 z-10 w-[22rem] max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 border border-rule-strong bg-surface p-4">
       <JobProgressBar job={job} fallbackText="Loading SPHEREx data…" />
     </div>
   )
 }
 
-export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack, onTryDefault }: Props) {
+export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack, onTryDefault, startTool }: Props) {
   const { data, loading, error, job } = useSkyPatch({ ra, dec, fov: patchFov(fov) })
   const [fpsIdx, setFpsIdx] = useState(1)
   // Which spectrum the panel shows: the target's own (null) or an anomaly's.
   const [selectedAnomaly, setSelectedAnomaly] = useState<string | null>(null)
   // A free click on the image: the pixel centre, tied to the patch it was made on.
   const [probe, setProbe] = useState<{ x: number; y: number; patchKey: string } | null>(null)
-  const [spectrumOpen, setSpectrumOpen] = useState(false) // charts stay closed until asked for
-  // The left column holds ONE extra panel at a time (they don't fit together); closed until asked for.
-  const [leftPanel, setLeftPanel] = useState<'lightcurve' | 'community' | 'chat' | null>(null)
+  // The dock holds ONE panel at a time; closed until asked for (or named in the link).
+  const [tab, setTab] = useState<Tab | null>(startTool ? (TABS[startTool] ?? null) : null)
+  const [minimised, setMinimised] = useState(false) // phones: the dock folded to its header
+  // The report form keeps what was typed while another tab is looked at.
+  const [communityUsed, setCommunityUsed] = useState(tab === 'community')
+  const openTab = (t: Tab | null) => {
+    setTab(t)
+    setMinimised(false)
+    if (t === 'community') setCommunityUsed(true)
+  }
+  // A click on the image shows that spectrum, unless a report is being written (the click is its subject).
+  const showSpectrum = () => {
+    if (tab !== 'community') openTab('spectrum')
+  }
   const [allTargets, setAllTargets] = useState(false) // community feed: every target, not just this one
   const [showMarkers, setShowMarkers] = useState(false) // community reports drawn on the image
   const [highlightReport, setHighlightReport] = useState<string | null>(null)
@@ -108,7 +135,7 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
     () =>
       frames
         ? frames.map(f => ({ label: f.label }))
-        : (data?.timelapse_epochs ?? NO_EPOCHS).map(e => ({ label: new Date(e.date).toLocaleDateString('en-US') })),
+        : (data?.timelapse_epochs ?? NO_EPOCHS).map(e => ({ label: fmtDate(e.date) })),
     [frames, data],
   )
 
@@ -144,8 +171,8 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
     if (!before || !after) return null
     return {
       points: [
-        { ...before, color: '#60a5fa', label: `${known.name}: expected position in ${activeDiff.epochB} (blue: where it was)` },
-        { ...after, color: '#f87171', label: `${known.name}: expected position in ${activeDiff.epochA} (red: where it is)` },
+        { ...before, color: '#76a8f5', label: `${known.name}: expected position in ${activeDiff.epochB} (blue: where it was)` },
+        { ...after, color: '#f0766b', label: `${known.name}: expected position in ${activeDiff.epochA} (red: where it is)` },
       ],
       arrow: { from: before, to: after },
     }
@@ -255,7 +282,7 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
   }, [data, activeProbe, probePoint, probed.data, selectedAnomaly])
 
   // Community feed: lives here (not in the panel) so the image can draw the same reports.
-  const communityOpen = leftPanel === 'community'
+  const communityOpen = tab === 'community'
   const targetName = data?.target_info.name ?? null
   const feed = useReports(allTargets ? null : targetName, { enabled: communityOpen && data !== null })
   const communityMarkers = useMemo<CommunityMarker[]>(() => {
@@ -270,262 +297,264 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
     return found
   }, [data, communityOpen, showMarkers, feed.reports])
 
-  return (
-    <div className="absolute inset-0 z-0 bg-black">
-      {data && imageUrl && (
-        <SkyViewer
-          imageUrl={imageUrl}
-          alt={`${data.target_info.name} ${diffLike ? (activeDiff?.label ?? '') : (epoch?.epoch_id ?? '')} ${layer}`}
-          anomalies={anomalies}
-          selectedId={selectedAnomaly}
-          onSelect={id => {
-            setSelectedAnomaly(id)
-            setProbe(null)
-            setSpectrumOpen(true)
-          }}
-          probe={activeProbe}
-          communityMarkers={communityMarkers}
-          motion={motion}
-          highlightedCommunityId={highlightReport}
-          onCommunitySelect={setHighlightReport}
-          onProbe={(x, y) => {
-            if (!patchKey) return
-            setProbe({ x, y, patchKey })
-            setSelectedAnomaly(null)
-            setSpectrumOpen(true)
-          }}
-        />
+
+  // The five objects have a proper name worth a heading; anywhere else the name is just the coordinates.
+  const heading = !data ? 'Loading…' : known || data.fallback ? data.target_info.name : 'This patch of sky'
+  const cautions = data ? cautionLines(data, { full: true }) : []
+  const dock = { onClose: () => openTab(null), minimised, onMinimise: () => setMinimised(m => !m) }
+  // The raw text of a network failure ("TypeError: Failed to fetch") says nothing to a visitor.
+  const errorText = error && /TypeError|Failed to fetch|NetworkError/i.test(error) ? 'The server could not be reached. Check your connection and try again in a moment.' : error
+
+  /** What the data is about: name, coordinates, its one-line story and the scientific caveat. */
+  const objectCard = (
+    <div className="space-y-2 p-4">
+      <div className="label-caps text-faint">SPHEREx data for</div>
+      <h1 className="font-display text-2xl leading-7 text-paper">{heading}</h1>
+      <div className="font-mono text-xs leading-relaxed text-muted">
+        <div>RA&nbsp; {fmt(ra)}°</div>
+        <div>Dec {fmt(dec)}°</div>
+      </div>
+      {facts && lightStory(facts) && (
+        <p className="font-display text-sm italic leading-snug text-muted" title={facts.distance_source ?? undefined}>
+          {lightStory(facts)}
+        </p>
       )}
-
-      <div className="absolute left-3 top-3 z-10 flex flex-col items-start gap-2">
-        <button
-          onClick={onBack}
-          className="rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
-        >
-          ← Back to sky map
-        </button>
-        <div className="rounded bg-black/70 p-3 font-mono text-xs backdrop-blur">
-          <div className="text-slate-400">SPHEREx data for</div>
-          <div>RA&nbsp; {fmt(ra)}°</div>
-          <div>Dec {fmt(dec)}°</div>
-          {data && <div className="mt-1 text-slate-300">{data.target_info.name}</div>}
-          {nearby !== undefined && (
-            <div
-              className="mt-1 max-w-[15rem] font-sans text-slate-400"
-              title="From SIMBAD (parallax). It is the closest catalogued star to the centre, not necessarily what you are looking at."
-            >
-              {nearby ? nearbyStarText(nearby) : 'No star with a measured distance at the centre of this view.'}
-            </div>
-          )}
-          {facts && lightStory(facts) && (
-            <div
-              className="mt-1 max-w-[15rem] font-sans text-slate-400"
-              title={facts.distance_source ?? undefined}
-            >
-              {lightStory(facts)}
-            </div>
-          )}
-          {data && cautionLines(data, { full: true }).length > 0 && (
-            <div className="mt-2 max-w-[15rem] font-sans text-amber-200">
-              <button
-                onClick={() => setNoteOpen(o => !o)}
-                aria-expanded={noteOpen}
-                title="Scientific caveat from the data team: what can and cannot be claimed from this object"
-                className="text-left"
-              >
-                ⚠ {cautionLines(data)[0] ?? 'Note about this data'}{' '}
-                <span className="underline">{noteOpen ? 'hide' : 'why?'}</span>
-              </button>
-              {noteOpen && (
-                <div className="mt-1 max-h-40 space-y-1 overflow-y-auto text-[11px] text-amber-100">
-                  {cautionLines(data, { full: true }).map(line => (
-                    <p key={line}>{line}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          {[
-            { label: 'Spectrum', open: spectrumOpen, toggle: () => setSpectrumOpen(o => !o) },
-            { label: 'Light curve', open: leftPanel === 'lightcurve', toggle: () => setLeftPanel(p => (p === 'lightcurve' ? null : 'lightcurve')) },
-            { label: 'Ask', open: leftPanel === 'chat', toggle: () => setLeftPanel(p => (p === 'chat' ? null : 'chat')) },
-            { label: 'Community', open: leftPanel === 'community', toggle: () => setLeftPanel(p => (p === 'community' ? null : 'community')) },
-          ].map(b => (
-            <button
-              key={b.label}
-              onClick={b.toggle}
-              disabled={!data}
-              aria-pressed={b.open}
-              className={`rounded px-3 py-2 text-sm backdrop-blur disabled:opacity-40 ${
-                b.open ? 'bg-sky-600' : 'bg-black/70 hover:bg-slate-800'
-              }`}
-            >
-              {b.label}
-            </button>
-          ))}
-        </div>
-
-        {data && leftPanel === 'lightcurve' && (
-          <LightCurvePanel
-            points={data.light_curve}
-            currentEpochId={diffLike ? activeDiff?.epochA : epoch?.epoch_id}
-            cautions={cautionLines(data)}
-            onClose={() => setLeftPanel(null)}
-          />
-        )}
-        {data && leftPanel === 'chat' && (
-          <ChatPanel
-            targetKey={facts?.key ?? null}
-            context={chatContext}
-            position={!facts && !data.fallback ? { ra, dec } : undefined}
-            onClose={() => setLeftPanel(null)}
-          />
-        )}
-        {data && leftPanel === 'community' && (
-          <CommunityPanel
-            targetName={data.target_info.name}
-            selection={reportSelection}
-            feed={feed}
-            allTargets={allTargets}
-            onAllTargetsChange={setAllTargets}
-            showMarkers={showMarkers}
-            onShowMarkersChange={setShowMarkers}
-            highlightId={highlightReport}
-            cardImage={data && imageUrl ? { url: resolveAssetUrl(imageUrl), patch: data.patch, targetName: data.target_info.name } : null}
-            onClose={() => setLeftPanel(null)}
-          />
-        )}
-      </div>
-
-      <div className="absolute left-1/2 top-3 z-10 flex w-[28rem] max-w-[60vw] -translate-x-1/2 flex-col gap-2 text-center text-xs">
-        {data?.fallback && (
-          <p className="rounded bg-amber-900/80 px-3 py-2 backdrop-blur">
-            {data.fallback_message ?? 'Showing cached data for another position.'}
-          </p>
-        )}
-      </div>
-
-      {/* Bottom right, above the timeline: out of the way of the image. Details open upwards. */}
-      <div className="absolute bottom-16 right-3 z-10 w-[22rem] max-w-[calc(100vw-1.5rem)] text-center text-xs">
-  {diffLike && diff && activeDiff && (
-    <div className="rounded bg-black/70 px-3 py-2 backdrop-blur">
-      <div className="flex items-center justify-center gap-2">
-        <span className="font-medium text-slate-100">
-          {inDetect
-            ? 'Detections (beta) · needs human verification'
-            : `${activeDiff.consecutive ? 'Changes between consecutive visits' : 'Changes, first vs last visit'} · ${activeDiff.label}`}
-        </span>
-        <button
-          onClick={() => setInfoOpen(o => !o)}
-          aria-expanded={infoOpen}
-          aria-label="More about this layer"
-          title="More about this layer"
-          className="rounded-full border border-slate-500 px-1.5 text-[11px] leading-4 text-slate-300 hover:bg-slate-700"
-        >
-          i
-        </button>
-      </div>
-      {activeDiff.weak && (
-        <div className="mt-1 text-amber-300">Weak signal: the expected motion is under one SPHEREx pixel.</div>
+      {nearby !== undefined && (
+        <p className="text-xs leading-snug text-muted" title="From SIMBAD (parallax). It is the closest catalogued star to the centre, not necessarily what you are looking at.">
+          {nearby ? nearbyStarText(nearby) : 'No star with a measured distance at the centre of this view.'}
+        </p>
       )}
-      {infoOpen && (
-        <div className="mt-2 space-y-1 border-t border-slate-700 pt-2 text-[11px] text-slate-300">
-          {inDetect ? (
-            <>
-              <div>
-                {diff.detection_label ?? 'Software-assisted detection (BETA)'}: {diff.detection_notice ?? 'detected by software, needs human verification.'}
-              </div>
-              <div className="flex justify-center gap-3 text-slate-400">
-                <span><span className="text-emerald-400">●</span> appeared</span>
-                <span><span className="text-rose-400">●</span> disappeared</span>
-                <span><span className="text-amber-400">●</span> contaminated</span>
-              </div>
-            </>
-          ) : (
-            <>
-              {diffFrames.length > 1 && <div>Press play to step through the {diffFrames.length} differences.</div>}
-              <div className="text-slate-400">
-                {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochB)?.date)} →{' '}
-                {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochA)?.date)}
-                {activeDiff.deltaDays != null ? ` · ${Math.round(activeDiff.deltaDays)} days apart` : ''}
-                {activeDiff.expectedShiftArcsec != null ? ` · expected motion ${activeDiff.expectedShiftArcsec.toFixed(1)}″` : ''}
-              </div>
-              <div className="text-slate-400">
-                <span className="text-red-400">red</span> brighter in the later visit ·{' '}
-                <span className="text-sky-400">blue</span> brighter in the earlier visit
-              </div>
-              {known && (
-                <label className="flex items-center justify-center gap-2 text-slate-300">
-                  <input type="checkbox" checked={motionOn} onChange={e => setMotionOn(e.target.checked)} />
-                  Mark where {known.name} should be, from its known motion
-                </label>
-              )}
-              {known && motionOn && (
-                <div className="text-slate-500">
-                  <span className="text-sky-400">blue ring</span> before · <span className="text-red-400">red ring</span> now · arrow: expected motion
-                </div>
-              )}
-            </>
+      {data && cautions.length > 0 && (
+        <Callout tone="caution">
+          <span title="Scientific caveat from the data team: what can and cannot be claimed from this object">{cautionLines(data)[0] ?? 'Note about this data.'}</span>{' '}
+          <LinkButton onClick={() => setNoteOpen(o => !o)} aria-expanded={noteOpen}>
+            {noteOpen ? 'hide' : 'why?'}
+          </LinkButton>
+          {noteOpen && (
+            <div className="mt-1.5 max-h-40 space-y-1 overflow-y-auto text-2xs text-muted">
+              {cautions.map(line => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
           )}
-        </div>
+        </Callout>
       )}
     </div>
-  )}
-      </div>
+  )
 
-      {loading && !data && <JobCard job={job} />}
+  const tools: ToolGroup[] = [
+    {
+      label: 'Look closer',
+      tools: [
+        { id: 'spectrum', label: 'Spectrum', short: 'Spectrum', hint: 'Its light, split into 102 infrared colours', icon: <SpectrumIcon />, active: tab === 'spectrum', disabled: !data, onClick: () => openTab(tab === 'spectrum' ? null : 'spectrum') },
+        { id: 'lightcurve', label: 'Light curve', short: 'Brightness', hint: 'Its brightness at every visit', icon: <CurveIcon />, active: tab === 'lightcurve', disabled: !data, onClick: () => openTab(tab === 'lightcurve' ? null : 'lightcurve') },
+      ],
+    },
+    {
+      label: 'Ask',
+      tools: [{ id: 'chat', label: 'Ask about it', short: 'Ask', hint: 'What you see, explained in plain words', icon: <ChatIcon />, active: tab === 'chat', disabled: !data, onClick: () => openTab(tab === 'chat' ? null : 'chat') }],
+    },
+    {
+      label: 'Community',
+      tools: [{ id: 'community', label: 'Sightings here', short: 'Sightings', hint: 'What people reported, and your own report', icon: <PinIcon />, active: tab === 'community', disabled: !data, onClick: () => openTab(tab === 'community' ? null : 'community') }],
+    },
+  ]
 
-      {error && !data && (
-        <div className="absolute left-1/2 top-1/2 z-10 w-80 -translate-x-1/2 -translate-y-1/2 space-y-3 rounded bg-black/80 p-4 text-center text-sm backdrop-blur">
-          <p>{error}</p>
-          <div className="flex justify-center gap-2">
-            <button onClick={onBack} className="rounded bg-slate-700 px-3 py-1 hover:bg-slate-600">
-              Back
-            </button>
-            <button onClick={onTryDefault} className="rounded bg-sky-600 px-3 py-1 hover:bg-sky-500">
-              Try WISE 0855
-            </button>
-          </div>
+  // In plain words, next to the layer buttons: what the picture on screen is.
+  const caption: ReactNode = !data ? (
+    'Each layer is a different way to look at the same patch of sky.'
+  ) : inDetect ? (
+    <>
+      <span className="text-paper">Detections (beta) · needs human verification.</span> Candidates flagged by software on the first-versus-last difference.
+    </>
+  ) : inDiff && activeDiff ? (
+    <>
+      <span className="text-paper">
+        {activeDiff.consecutive ? 'What changed between two consecutive visits' : 'What changed between the first and the last visit'} ({activeDiff.label}).
+      </span>{' '}
+      <span className="text-later">Red</span>: brighter later. <span className="text-earlier">Blue</span>: brighter earlier.
+    </>
+  ) : layer === 'base' || !filters.includes(layer) ? (
+    'All the infrared light of this visit, in false colour. Press play to flick through the visits.'
+  ) : (
+    <>Only the light at the wavelengths where {layerName(layer)} leaves its mark.</>
+  )
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <ToolRail groups={tools} header={objectCard} label="Data tools" />
+
+      {/* The dock: beside the rail on wide screens, under the picture on phones. */}
+      {data && tab && (
+        <div
+          className={cx(
+            'order-2 flex min-h-0 shrink-0 animate-rise flex-col border-t border-rule-strong md:order-none md:h-auto md:w-[23rem] md:border-r md:border-t-0',
+            minimised ? 'max-md:h-auto' : 'max-md:h-[46%]',
+          )}
+        >
+          {tab === 'spectrum' && spectrumView && (
+            <SpectrumPanel
+              view={spectrumView}
+              onShowTarget={
+                selectedAnomaly || activeProbe
+                  ? () => {
+                      setSelectedAnomaly(null)
+                      setProbe(null)
+                    }
+                  : undefined
+              }
+              dock={dock}
+            />
+          )}
+          {tab === 'lightcurve' && (
+            <LightCurvePanel points={data.light_curve} currentEpochId={diffLike ? activeDiff?.epochA : epoch?.epoch_id} cautions={cautionLines(data)} dock={dock} />
+          )}
+          {tab === 'chat' && <ChatPanel targetKey={facts?.key ?? null} context={chatContext} position={!facts && !data.fallback ? { ra, dec } : undefined} dock={dock} />}
+          {communityUsed && (
+            <div className={cx('min-h-0 flex-1 flex-col', tab === 'community' ? 'flex' : 'hidden')}>
+              <CommunityPanel
+                targetName={data.target_info.name}
+                selection={reportSelection}
+                feed={feed}
+                allTargets={allTargets}
+                onAllTargetsChange={setAllTargets}
+                showMarkers={showMarkers}
+                onShowMarkersChange={setShowMarkers}
+                highlightId={highlightReport}
+                cardImage={imageUrl ? { url: resolveAssetUrl(imageUrl), patch: data.patch, targetName: data.target_info.name } : null}
+                dock={dock}
+              />
+            </div>
+          )}
         </div>
       )}
+      {/* Phones have no room for the rail's header: the object card sits under the picture instead. */}
+      {!(data && tab) && <div className="order-2 max-h-[38%] shrink-0 overflow-y-auto border-t border-rule bg-surface md:hidden">{objectCard}</div>}
 
-      {/* Always rendered so the interface keeps its shape; inert until there is data. */}
-      <LayerSwitcher
-        filters={filters}
-        layer={layer}
-        onChange={onLayerChange}
-        disabled={!data}
-        unavailable={unavailable}
-      />
-      <TimelineBar
-        frames={timelineFrames}
-        index={player.index}
-        playing={player.playing}
-        fps={fps}
-        onIndex={player.setIndex}
-        onToggle={player.toggle}
-        onPrev={player.prev}
-        onNext={player.next}
-        onFpsClick={() => setFpsIdx(i => (i + 1) % FPS_OPTIONS.length)}
-      />
+      {/* The player: layers above the picture, time below it. */}
+      <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col md:order-none">
+        {/* Always rendered so the interface keeps its shape; inert until there is data. */}
+        <LayerSwitcher filters={filters} layer={layer} onChange={onLayerChange} disabled={!data} unavailable={unavailable} name={layerName} />
 
-      {data && spectrumView && spectrumOpen && (
-        <SpectrumPanel
-          view={spectrumView}
-          onShowTarget={
-            selectedAnomaly || activeProbe
-              ? () => {
-                  setSelectedAnomaly(null)
-                  setProbe(null)
-                }
-              : undefined
-          }
-          onClose={() => setSpectrumOpen(false)}
+        <div className="shrink-0 space-y-1.5 border-b border-rule bg-surface px-3 py-1.5 text-xs leading-snug text-muted">
+          <div className="flex items-start justify-between gap-3">
+            <p>{caption}</p>
+            {diffLike && diff && activeDiff && (
+              <LinkButton onClick={() => setInfoOpen(o => !o)} aria-expanded={infoOpen} className="shrink-0">
+                {infoOpen ? 'Hide details' : 'Details'}
+              </LinkButton>
+            )}
+          </div>
+          {diffLike && activeDiff?.weak && <Callout tone="caution">Weak signal: the expected motion is under one SPHEREx pixel, so any change here is subtle.</Callout>}
+          {diffLike && diff && activeDiff && infoOpen && (
+            <div className="space-y-1.5 border-t border-rule pt-1.5">
+              {inDetect ? (
+                <>
+                  <p>
+                    {diff.detection_label ?? 'Software-assisted detection (BETA)'}: {diff.detection_notice ?? 'detected by software, needs human verification.'}
+                  </p>
+                  <p className="flex flex-wrap gap-x-4 gap-y-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-emerald-400" /> appeared
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-rose-400" /> disappeared
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-amber-400" /> contaminated (unreliable)
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-mono text-2xs">
+                    {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochB)?.date)} to{' '}
+                    {fmtDate(data?.timelapse_epochs.find(e => e.epoch_id === activeDiff.epochA)?.date)}
+                    {activeDiff.deltaDays != null ? ` · ${Math.round(activeDiff.deltaDays)} days apart` : ''}
+                    {activeDiff.expectedShiftArcsec != null ? ` · expected motion ${activeDiff.expectedShiftArcsec.toFixed(1)}″` : ''}
+                  </p>
+                  {diffFrames.length > 1 && <p>Press play to step through the {diffFrames.length} differences.</p>}
+                  {known && (
+                    <Check checked={motionOn} onChange={setMotionOn}>
+                      Mark where {known.name} should be, from its known motion
+                      {motionOn && (
+                        <span className="text-faint">
+                          {' '}
+                          (<span className="text-earlier">blue ring</span>: before · <span className="text-later">red ring</span>: now · arrow: expected motion)
+                        </span>
+                      )}
+                    </Check>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="relative min-h-0 flex-1 bg-sunken">
+          {data && imageUrl && (
+            <SkyViewer
+              imageUrl={imageUrl}
+              alt={`${data.target_info.name} ${diffLike ? (activeDiff?.label ?? '') : (epoch?.epoch_id ?? '')} ${layer}`}
+              anomalies={anomalies}
+              selectedId={selectedAnomaly}
+              onSelect={id => {
+                setSelectedAnomaly(id)
+                setProbe(null)
+                showSpectrum()
+              }}
+              probe={activeProbe}
+              communityMarkers={communityMarkers}
+              motion={motion}
+              highlightedCommunityId={highlightReport}
+              onCommunitySelect={setHighlightReport}
+              onProbe={(x, y) => {
+                if (!patchKey) return
+                setProbe({ x, y, patchKey })
+                setSelectedAnomaly(null)
+                showSpectrum()
+              }}
+            />
+          )}
+
+          {data?.fallback && (
+            <div className="absolute inset-x-2 top-2 z-10 mx-auto max-w-xl">
+              <Callout tone="caution" className="bg-caution-wash">
+                {data.fallback_message ?? 'Showing cached data for another position.'}
+              </Callout>
+            </div>
+          )}
+
+          {loading && !data && <JobCard job={job} />}
+
+          {errorText && !data && (
+            <div className="absolute left-1/2 top-1/2 z-10 w-[22rem] max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 space-y-3 border border-rule-strong bg-surface p-4">
+              <Callout tone="error" live>
+                {errorText}
+              </Callout>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={onBack}>Back to the sky map</Button>
+                <Button variant="primary" onClick={onTryDefault}>
+                  Try WISE 0855
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <TimelineBar
+          frames={timelineFrames}
+          index={player.index}
+          playing={player.playing}
+          fps={fps}
+          fpsOptions={FPS_OPTIONS}
+          onFps={f => setFpsIdx(Math.max(0, FPS_OPTIONS.indexOf(f)))}
+          onIndex={player.setIndex}
+          onToggle={player.toggle}
+          onPrev={player.prev}
+          onNext={player.next}
         />
-      )}
+      </div>
     </div>
   )
 }

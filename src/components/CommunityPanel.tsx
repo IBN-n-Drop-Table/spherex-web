@@ -14,6 +14,9 @@ import type { CardImage } from '../lib/shareCard'
 import type { CitizenReport, Classification } from '../types/api'
 import ReportCard from './ReportCard'
 import ShareCardDialog from './ShareCardDialog'
+import { Button, Callout, Check, Field, Panel, type DockControls } from './ui'
+import { fieldClass } from './classes'
+import { ArrowLeftIcon, PlusIcon } from './icons'
 
 /** What a new report would be about: the selected anomaly or the clicked point. */
 export interface ReportSelection {
@@ -37,7 +40,7 @@ interface Props {
   onShowMarkersChange: (v: boolean) => void
   /** Report to outline (its marker was clicked). */
   highlightId: string | null
-  onClose: () => void
+  dock: DockControls
 }
 
 /** Community feed for the current target, plus the form to report a sighting. */
@@ -51,7 +54,7 @@ export default function CommunityPanel({
   showMarkers,
   onShowMarkersChange,
   highlightId,
-  onClose,
+  dock,
 }: Props) {
   const [mode, setMode] = useState<'feed' | 'form'>('feed')
   const verify = useVerify(feed.replace)
@@ -99,114 +102,92 @@ export default function CommunityPanel({
   }
 
   return (
-    <div className="w-[26rem] max-w-[calc(100vw-1.5rem)] rounded bg-black/80 p-3 text-xs backdrop-blur">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-sm font-medium text-slate-100">
-            {mode === 'feed' ? 'Community sightings' : 'Report a sighting'}
-          </div>
-          <div className="text-slate-400">
-            {mode === 'feed' ? (allTargets ? 'all targets' : targetName) : `about ${targetName}`}
-          </div>
-        </div>
-        <div className="flex gap-1">
-          {mode === 'feed' ? (
-            <button
-              onClick={() => {
-                setFeedNote(null)
-                setMode('form')
-              }}
-              className="rounded bg-sky-600 px-2 py-1 hover:bg-sky-500"
-            >
-              + Report
-            </button>
-          ) : (
-            <button onClick={() => setMode('feed')} className="rounded bg-slate-800 px-2 py-1 hover:bg-slate-700">
-              ← Feed
-            </button>
-          )}
-          <button onClick={onClose} aria-label="Close community" className="rounded bg-slate-800 px-2 py-1 hover:bg-slate-700">
-            ✕
-          </button>
-        </div>
-      </div>
-
+    <Panel
+      title={mode === 'feed' ? 'Community sightings' : 'Report a sighting'}
+      subtitle={mode === 'feed' ? (allTargets ? 'Every object' : targetName) : `About ${targetName}`}
+      actions={
+        mode === 'feed' ? (
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => {
+              setFeedNote(null)
+              setMode('form')
+            }}
+          >
+            <PlusIcon className="h-4 w-4" /> Report
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => setMode('feed')}>
+            <ArrowLeftIcon className="h-4 w-4" /> Feed
+          </Button>
+        )
+      }
+      className="h-full"
+      flush
+      {...dock}
+    >
       {mode === 'feed' ? (
         <>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-400">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showMarkers} onChange={e => onShowMarkersChange(e.target.checked)} />
-              Show on the image
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={allTargets} onChange={e => onAllTargetsChange(e.target.checked)} />
-              Every target
-            </label>
+          <div className="space-y-2 border-b border-rule px-4 py-3">
+            <div className="flex flex-wrap gap-x-5 gap-y-1">
+              <Check checked={showMarkers} onChange={onShowMarkersChange}>
+                Mark them on the image
+              </Check>
+              <Check checked={allTargets} onChange={onAllTargetsChange}>
+                Include every object
+              </Check>
+            </div>
+            <p className="text-2xs text-faint">Sightings are candidates reported by people. None is confirmed until others check it.</p>
+            {(feedNote || verify.error) && <Callout tone={verify.error ? 'error' : 'info'}>{verify.error ?? feedNote}</Callout>}
           </div>
-          {(feedNote || verify.error) && (
-            <p className="mt-2 rounded bg-slate-800 px-2 py-1 text-slate-200">{verify.error ?? feedNote}</p>
+          {feed.loading ? (
+            <p className="px-4 py-3 text-xs text-muted">Loading…</p>
+          ) : feed.error ? (
+            <div className="p-4">
+              <Callout tone="error">{feed.error}</Callout>
+            </div>
+          ) : feed.reports.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-muted">No reports yet. Be the first to report a sighting.</p>
+          ) : (
+            <ul className="divide-y divide-rule" data-testid="report-list">
+              {feed.reports.map(r => (
+                <ReportCard
+                  key={r.id}
+                  report={r}
+                  verified={verify.verified.has(r.id)}
+                  busy={verify.verifying === r.id}
+                  highlighted={r.id === highlightId}
+                  onVerify={() => verify.confirm(r)}
+                  onShare={() => setSharing(r)}
+                />
+              ))}
+            </ul>
           )}
-          <div className="mt-2 max-h-72 overflow-y-auto pr-1">
-            {feed.loading ? (
-              <p className="text-slate-400">Loading…</p>
-            ) : feed.error ? (
-              <p className="text-rose-300">{feed.error}</p>
-            ) : feed.reports.length === 0 ? (
-              <p className="text-slate-400">No reports yet. Be the first to report a sighting.</p>
-            ) : (
-              <ul className="space-y-2" data-testid="report-list">
-                {feed.reports.map(r => (
-                  <ReportCard
-                    key={r.id}
-                    report={r}
-                    verified={verify.verified.has(r.id)}
-                    busy={verify.verifying === r.id}
-                    highlighted={r.id === highlightId}
-                    onVerify={() => verify.confirm(r)}
-                    onShare={() => setSharing(r)}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
         </>
       ) : (
-        <form onSubmit={submit} className="mt-2 space-y-2" data-testid="report-form">
-          <div className="rounded border border-slate-700 p-2">
+        <form onSubmit={submit} className="space-y-4 p-4" data-testid="report-form">
+          <div>
+            <div className="label-caps mb-1 text-faint">What you are reporting</div>
             {selection ? (
-              <>
-                <div className="text-slate-100">{selection.label}</div>
-                <div className="font-mono text-[10px] text-slate-400">
+              <div className="border-l-2 border-accent pl-3">
+                <div className="text-sm text-paper">{selection.label}</div>
+                <div className="font-mono text-2xs text-muted">
                   {selection.ra.toFixed(4)}°, {selection.dec.toFixed(4)}°
                   {selection.pixel ? ` · px ${selection.pixel.x},${selection.pixel.y}` : ''}
                 </div>
-              </>
+              </div>
             ) : (
-              <p className="text-amber-200">
-                First pick what you are reporting: click an anomaly (Difference layer) or any point of the image.
-              </p>
+              <Callout tone="caution">First pick it on the picture: click any point, or one of the circles of the Detections layer.</Callout>
             )}
           </div>
 
-          <label className="block">
-            <span className="text-slate-400">Your name or handle</span>
-            <input
-              value={handle}
-              onChange={e => setHandle(e.target.value)}
-              maxLength={HANDLE_MAX}
-              required
-              className="mt-0.5 w-full rounded bg-slate-900 px-2 py-1 outline-none ring-1 ring-slate-700 focus:ring-sky-500"
-            />
-          </label>
+          <Field label="Your name or handle">
+            <input value={handle} onChange={e => setHandle(e.target.value)} maxLength={HANDLE_MAX} required className={fieldClass} />
+          </Field>
 
-          <label className="block">
-            <span className="text-slate-400">What is it?</span>
-            <select
-              value={classification}
-              onChange={e => setClassification(e.target.value as Classification)}
-              required
-              className="mt-0.5 w-full rounded bg-slate-900 px-2 py-1 outline-none ring-1 ring-slate-700 focus:ring-sky-500"
-            >
+          <Field label="What do you think it is?">
+            <select value={classification} onChange={e => setClassification(e.target.value as Classification)} required className={fieldClass}>
               <option value="" disabled>
                 Choose…
               </option>
@@ -216,33 +197,25 @@ export default function CommunityPanel({
                 </option>
               ))}
             </select>
-          </label>
+          </Field>
 
-          <label className="block">
-            <span className="text-slate-400">
-              Notes (optional) · {notes.length}/{NOTES_MAX}
-            </span>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              maxLength={NOTES_MAX}
-              rows={3}
-              className="mt-0.5 w-full resize-none rounded bg-slate-900 px-2 py-1 outline-none ring-1 ring-slate-700 focus:ring-sky-500"
-            />
-          </label>
+          <Field label={`Notes (optional) · ${notes.length}/${NOTES_MAX}`}>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} maxLength={NOTES_MAX} rows={3} className={`${fieldClass} resize-none`} />
+          </Field>
 
-          {formError && <p className="rounded border border-rose-900 px-2 py-1 text-rose-200">{formError}</p>}
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="w-full rounded bg-sky-600 py-1.5 hover:bg-sky-500 disabled:opacity-40"
-          >
+          {formError && (
+            <Callout tone="error" live>
+              {formError}
+            </Callout>
+          )}
+          <Button type="submit" variant="primary" disabled={!canSubmit} className="w-full">
             {submitting ? 'Sending…' : 'Send report'}
-          </button>
+          </Button>
+          <p className="text-2xs text-faint">A report is a candidate for others to check. It is not a confirmed finding.</p>
         </form>
       )}
 
       {sharing && <ShareCardDialog report={sharing} image={cardImage} onClose={() => setSharing(null)} />}
-    </div>
+    </Panel>
   )
 }

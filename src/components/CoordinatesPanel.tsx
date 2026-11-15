@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { fmt, parseDec, parseRa } from '../lib/coords'
+import { Button } from './ui'
+import { cx } from './classes'
 
 export interface Coords {
   ra: number
@@ -11,6 +13,8 @@ interface Props {
   value: Coords
   loading?: boolean
   onSubmit: (c: Coords) => void
+  /** `row`: one line for the top bar. `stack`: full labels, one field per line (phones). */
+  layout?: 'row' | 'stack'
 }
 
 type Draft = { ra: string; dec: string; fov: string }
@@ -20,10 +24,10 @@ const RULES: Record<keyof Coords, (n: number) => boolean> = {
   dec: n => n >= -90 && n <= 90,
   fov: n => n > 0,
 }
-const FIELDS: { key: keyof Coords; label: string; unit: string }[] = [
-  { key: 'ra', label: 'RA', unit: '°' },
-  { key: 'dec', label: 'Dec', unit: '°' },
-  { key: 'fov', label: 'FOV', unit: '′' },
+const FIELDS: { key: keyof Coords; label: string; name: string; unit: string; help: string }[] = [
+  { key: 'ra', label: 'RA', name: 'Right ascension', unit: '°', help: 'Right ascension, in degrees. Also accepts 08h55m10s.' },
+  { key: 'dec', label: 'Dec', name: 'Declination', unit: '°', help: 'Declination, in degrees. Also accepts -7d14m42s.' },
+  { key: 'fov', label: 'FOV', name: 'Field of view', unit: '′', help: 'Field of view: how much sky fits across, in arcminutes.' },
 ]
 
 const PARSERS: Record<keyof Coords, (s: string) => number> = {
@@ -37,7 +41,7 @@ const parse = (k: keyof Coords, s: string) => PARSERS[k](s)
  * Editable RA / Dec / FOV. Drafts are local; the query only changes on Enter / Go.
  * Mount it with a `key` derived from `value` so drafts reset when the query changes elsewhere.
  */
-export default function CoordinatesPanel({ value, loading, onSubmit }: Props) {
+export default function CoordinatesPanel({ value, loading, onSubmit, layout = 'row' }: Props) {
   const [draft, setDraft] = useState<Draft>({
     ra: fmt(value.ra),
     dec: fmt(value.dec),
@@ -46,6 +50,7 @@ export default function CoordinatesPanel({ value, loading, onSubmit }: Props) {
 
   const valid = (k: keyof Coords) => RULES[k](parse(k, draft[k]))
   const allValid = FIELDS.every(f => valid(f.key))
+  const stack = layout === 'stack'
 
   const submit = () => {
     if (!allValid) return
@@ -54,31 +59,37 @@ export default function CoordinatesPanel({ value, loading, onSubmit }: Props) {
 
   return (
     <form
-      onSubmit={e => { e.preventDefault(); submit() }}
-      className="space-y-1 rounded bg-black/70 p-3 font-mono text-xs text-slate-100 backdrop-blur"
+      onSubmit={e => {
+        e.preventDefault()
+        submit()
+      }}
+      aria-label="Coordinates"
+      className={cx('font-mono text-xs', stack ? 'grid gap-2' : 'flex items-center gap-3')}
     >
-      {FIELDS.map(({ key, label, unit }) => (
-        <label key={key} className="flex items-center gap-2">
-          <span className="w-8 text-slate-400">{label}</span>
-          <input
-            inputMode="decimal"
-            value={draft[key]}
-            onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
-            aria-invalid={!valid(key)}
-            className={`w-28 rounded bg-slate-900 px-2 py-1 outline-none ring-1 ${
-              valid(key) ? 'ring-slate-700 focus:ring-sky-500' : 'ring-red-500'
-            }`}
-          />
-          <span className="text-slate-400">{unit}</span>
+      {FIELDS.map(({ key, label, name, unit, help }) => (
+        <label key={key} title={help} className={cx('flex items-center gap-1.5', stack && 'justify-between')}>
+          <span className={cx('text-faint', stack && 'font-sans text-muted')}>{stack ? name : label}</span>
+          <span className="flex items-center gap-1">
+            <input
+              inputMode="decimal"
+              value={draft[key]}
+              onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
+              aria-label={name}
+              aria-invalid={!valid(key)}
+              className={cx(
+                'rounded-ctl border bg-sunken px-2 text-paper',
+                stack ? 'h-11 w-40' : 'h-8 w-[6.75rem]',
+                key === 'fov' && !stack && 'w-[4.5rem]',
+                valid(key) ? 'border-rule-strong focus:border-accent' : 'border-danger',
+              )}
+            />
+            <span className="w-2 text-faint">{unit}</span>
+          </span>
         </label>
       ))}
-      <button
-        type="submit"
-        disabled={!allValid || loading}
-        className="mt-1 w-full rounded bg-sky-600 py-1 hover:bg-sky-500 disabled:opacity-40"
-      >
+      <Button type="submit" size="sm" variant={stack ? 'primary' : 'secondary'} disabled={!allValid || loading} className="font-sans">
         {loading ? 'Loading…' : 'Go'}
-      </button>
+      </Button>
     </form>
   )
 }

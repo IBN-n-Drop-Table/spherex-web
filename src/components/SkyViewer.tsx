@@ -158,10 +158,10 @@ export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = 
             const by = to.y - uy * head
             return (
               <>
-                <line x1={from.x} y1={from.y} x2={bx} y2={by} stroke="#e2e8f0" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                <line x1={from.x} y1={from.y} x2={bx} y2={by} stroke="#ece6d6" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
                 <path
                   d={`M${to.x} ${to.y}L${bx - uy * head * 0.5} ${by + ux * head * 0.5}L${bx + uy * head * 0.5} ${by - ux * head * 0.5}Z`}
-                  fill="#e2e8f0"
+                  fill="#ece6d6"
                   stroke="none"
                 />
               </>
@@ -184,7 +184,7 @@ export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = 
         </g>
       )}
       {probe && (
-        <g pointerEvents="none" className="stroke-sky-300" fill="none" strokeWidth={1.5} vectorEffect="non-scaling-stroke">
+        <g pointerEvents="none" className="stroke-paper" fill="none" strokeWidth={1.5} vectorEffect="non-scaling-stroke">
           <circle cx={probe.x} cy={probe.y} r={radius * 0.7} vectorEffect="non-scaling-stroke" />
           <path
             d={`M${probe.x - radius * 1.5} ${probe.y}H${probe.x - radius * 0.7}M${probe.x + radius * 0.7} ${probe.y}H${probe.x + radius * 1.5}M${probe.x} ${probe.y - radius * 1.5}V${probe.y - radius * 0.7}M${probe.x} ${probe.y + radius * 0.7}V${probe.y + radius * 1.5}`}

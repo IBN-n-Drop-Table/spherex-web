@@ -13,9 +13,27 @@ export interface CardImage {
   targetName: string // the report is only drawn on it if it is about this target
 }
 
-const CUTOUT_PX = 110 // image pixels shown around the sighting (about 55 arcsec)
-const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
-const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace'
+// The cutout is a share of the patch (about 45%: ~20 SPHEREx pixels across for a 5-arcmin patch), so
+// neighbouring stars give the sighting some context instead of one enlarged blob.
+const CUTOUT_SHARE = 0.45
+const FONT = '"IBM Plex Sans", system-ui, sans-serif'
+const MONO = '"IBM Plex Mono", ui-monospace, monospace'
+const DISPLAY = 'Spectral, Georgia, serif'
+// The interface's palette (see index.css).
+const INK = '#0c0b09'
+const PAPER = '#ece6d6'
+const MUTED = '#aba390'
+const FAINT = '#8b8473'
+const ACCENT = '#74c3b1'
+
+/** Canvas text only uses a web font once it is loaded: ask for the faces the cards draw with. */
+export async function loadCardFonts(): Promise<void> {
+  try {
+    await Promise.all(['500 52px Spectral', 'italic 21px Spectral', '500 26px "IBM Plex Sans"', '600 24px "IBM Plex Sans"', '500 25px "IBM Plex Mono"'].map(f => document.fonts.load(f)))
+  } catch {
+    /* the fallback fonts are fine */
+  }
+}
 
 /** Deterministic pseudo-random numbers, so a report always gets the same star field. */
 function seeded(seed: string) {
@@ -78,46 +96,45 @@ export async function renderShareCard(report: CitizenReport, image: CardImage | 
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas is not available')
   const kind = classificationInfo(report.classification)
+  await loadCardFonts()
 
   // background + a deterministic star field
-  const bg = ctx.createRadialGradient(300, 200, 40, 600, 315, 800)
-  bg.addColorStop(0, '#111a2e')
-  bg.addColorStop(1, '#03050a')
-  ctx.fillStyle = bg
+  ctx.fillStyle = INK
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT)
   const rnd = seeded(report.id)
   for (let i = 0; i < 160; i++) {
-    ctx.fillStyle = `rgba(255,255,255,${0.08 + rnd() * 0.45})`
+    ctx.fillStyle = `rgba(236,230,214,${0.06 + rnd() * 0.3})`
     const r = rnd() < 0.08 ? 1.6 : 0.8
     ctx.fillRect(rnd() * CARD_WIDTH, rnd() * CARD_HEIGHT, r, r)
   }
 
   // cutout (left)
   const box = { x: 60, y: 90, size: 450 }
-  ctx.fillStyle = '#000'
+  ctx.fillStyle = '#070706'
   ctx.fillRect(box.x, box.y, box.size, box.size)
   const pos = image ? positionInImage(report, image) : null
   const bitmap = image && pos ? await loadBitmap(image.url) : null
   if (image && pos && bitmap) {
     // the bitmap may differ in size from the patch grid: scale the crop with it
     const k = bitmap.width / image.patch.width_px
-    const half = CUTOUT_PX / 2
-    const sx = Math.min(Math.max(pos.x - half, 0), image.patch.width_px - CUTOUT_PX)
-    const sy = Math.min(Math.max(pos.y - half, 0), image.patch.height_px - CUTOUT_PX)
+    const cut = Math.max(16, Math.round(Math.min(image.patch.width_px, image.patch.height_px) * CUTOUT_SHARE))
+    const half = cut / 2
+    const sx = Math.min(Math.max(pos.x - half, 0), image.patch.width_px - cut)
+    const sy = Math.min(Math.max(pos.y - half, 0), image.patch.height_px - cut)
     ctx.imageSmoothingEnabled = false // keep SPHEREx's real pixels visible
-    ctx.drawImage(bitmap, sx * k, sy * k, CUTOUT_PX * k, CUTOUT_PX * k, box.x, box.y, box.size, box.size)
-    const px = box.x + ((pos.x - sx) / CUTOUT_PX) * box.size
-    const py = box.y + ((pos.y - sy) / CUTOUT_PX) * box.size
+    ctx.drawImage(bitmap, sx * k, sy * k, cut * k, cut * k, box.x, box.y, box.size, box.size)
+    const px = box.x + ((pos.x - sx) / cut) * box.size
+    const py = box.y + ((pos.y - sy) / cut) * box.size
     ctx.strokeStyle = kind.color
     ctx.lineWidth = 3
     ctx.beginPath()
-    ctx.arc(px, py, 34, 0, Math.PI * 2)
+    ctx.arc(px, py, 26, 0, Math.PI * 2)
     ctx.stroke()
-    ctx.fillStyle = 'rgba(255,255,255,0.85)'
-    ctx.font = `600 15px ${FONT}`
+    ctx.fillStyle = PAPER
+    ctx.font = `500 15px ${MONO}`
     ctx.fillText('SPHEREx', box.x + 12, box.y + box.size - 14)
   } else {
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+    ctx.strokeStyle = 'rgba(236,230,214,0.18)'
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.arc(box.x + box.size / 2, box.y + box.size / 2, 90, 0, Math.PI * 2)
@@ -126,65 +143,67 @@ export async function renderShareCard(report: CitizenReport, image: CardImage | 
     ctx.moveTo(box.x + box.size / 2, box.y + box.size / 2 - 120)
     ctx.lineTo(box.x + box.size / 2, box.y + box.size / 2 + 120)
     ctx.stroke()
-    ctx.fillStyle = 'rgba(255,255,255,0.4)'
+    ctx.fillStyle = FAINT
     ctx.font = `15px ${FONT}`
     ctx.textAlign = 'center'
     ctx.fillText('No SPHEREx image for this position here', box.x + box.size / 2, box.y + box.size - 22)
     ctx.textAlign = 'left'
   }
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)'
-  ctx.lineWidth = 2
+  ctx.strokeStyle = '#4c483d'
+  ctx.lineWidth = 1
   ctx.strokeRect(box.x, box.y, box.size, box.size)
 
   // text (right)
   const x = 560
-  ctx.fillStyle = '#38bdf8'
-  ctx.font = `700 17px ${FONT}`
+  ctx.fillStyle = ACCENT
+  ctx.font = `500 16px ${FONT}`
+  ctx.letterSpacing = '2px'
   ctx.fillText('CITIZEN SIGHTING', x, 118)
+  ctx.letterSpacing = '0px'
 
   ctx.fillStyle = kind.color
   ctx.beginPath()
   ctx.arc(x + 12, 176, 12, 0, Math.PI * 2)
   ctx.fill()
-  ctx.fillStyle = '#f8fafc'
-  ctx.font = `700 52px ${FONT}`
+  ctx.fillStyle = PAPER
+  ctx.font = `500 52px ${DISPLAY}`
   ctx.fillText(kind.label, x + 36, 194)
 
-  ctx.fillStyle = '#94a3b8'
-  ctx.font = `500 26px ${FONT}`
+  ctx.fillStyle = MUTED
+  ctx.font = `400 26px ${FONT}`
   ctx.fillText(report.target_name ?? 'Unnamed position', x, 238)
 
-  ctx.fillStyle = '#e2e8f0'
-  ctx.font = `500 25px ${MONO}`
+  ctx.fillStyle = PAPER
+  ctx.font = `400 25px ${MONO}`
   ctx.fillText(`RA   ${formatRa(report.ra_deg)}`, x, 300)
   ctx.fillText(`Dec  ${formatDec(report.dec_deg)}`, x, 336)
-  ctx.fillStyle = '#64748b'
+  ctx.fillStyle = FAINT
   ctx.font = `17px ${MONO}`
   ctx.fillText(`${report.ra_deg.toFixed(5)}°, ${report.dec_deg.toFixed(5)}°`, x, 364)
 
   if (report.notes) {
-    ctx.fillStyle = '#cbd5e1'
-    ctx.font = `italic 21px ${FONT}`
+    ctx.fillStyle = PAPER
+    ctx.font = `italic 22px ${DISPLAY}`
     wrap(ctx, `“${report.notes}”`, 580, 3).forEach((l, i) => ctx.fillText(l, x, 410 + i * 28))
   }
 
-  ctx.fillStyle = '#f8fafc'
-  ctx.font = `600 24px ${FONT}`
+  ctx.fillStyle = PAPER
+  ctx.font = `500 24px ${FONT}`
   ctx.fillText(`Reported by ${report.discoverer}`, x, 518)
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = MUTED
   ctx.font = `18px ${FONT}`
   const when = new Date(report.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
   const confirmed = report.verifications_count > 1 ? ` · confirmed by ${report.verifications_count - 1}` : ''
   ctx.fillText(`${when}${confirmed}`, x, 548)
 
   // footer
-  ctx.fillStyle = 'rgba(255,255,255,0.06)'
-  ctx.fillRect(0, CARD_HEIGHT - 52, CARD_WIDTH, 52)
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = '#2f2c25'
+  ctx.fillRect(60, CARD_HEIGHT - 52, CARD_WIDTH - 120, 1)
+  ctx.fillStyle = MUTED
   ctx.font = `15px ${FONT}`
   ctx.fillText('SPHEREx Citizen Science · Data: NASA/IPAC IRSA · Unverified candidate: needs human confirmation', 60, CARD_HEIGHT - 20)
   ctx.textAlign = 'right'
-  ctx.fillStyle = '#64748b'
+  ctx.fillStyle = FAINT
   ctx.fillText(reportLink(report).replace(/^https?:\/\//, '').slice(0, 60), CARD_WIDTH - 60, CARD_HEIGHT - 20)
   ctx.textAlign = 'left'
   return canvas

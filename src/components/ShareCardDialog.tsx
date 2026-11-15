@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { CARD_HEIGHT, CARD_WIDTH, renderShareCard, type CardImage } from '../lib/shareCard'
 import { classificationInfo, reportLink } from '../lib/reports'
 import type { CitizenReport } from '../types/api'
+import { Button, Dialog } from './ui'
+import { btnPrimary } from './classes'
 
 interface Props {
   report: CitizenReport
@@ -46,11 +47,6 @@ export default function ShareCardDialog({ report, image, title = 'Sighting card'
     }
   }, [report, image])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const ready = preview && 'blob' in preview ? preview : null
   const filename = `sighting-${(report.target_name ?? 'sky').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${report.id.slice(0, 8)}.png`
@@ -74,54 +70,29 @@ export default function ShareCardDialog({ report, image, title = 'Sighting card'
     }
   }
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
-      <div
-        className="w-[min(92vw,760px)] space-y-3 rounded-lg bg-slate-900 p-4 text-sm text-slate-100 shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-medium">{title}</h2>
-          <button onClick={onClose} aria-label="Close" className="rounded bg-slate-800 px-2 py-1 hover:bg-slate-700">
-            ✕
-          </button>
-        </div>
-
-        <div className="overflow-hidden rounded bg-black" style={{ aspectRatio: `${CARD_WIDTH} / ${CARD_HEIGHT}` }}>
+  return (
+    <Dialog title={title} onClose={onClose} width="max-w-3xl" raised>
+      <div className="space-y-3">
+        <div className="overflow-hidden border border-rule-strong bg-sunken" style={{ aspectRatio: `${CARD_WIDTH} / ${CARD_HEIGHT}` }}>
           {ready ? (
             <img src={ready.url} alt={`${label} candidate by ${report.discoverer}`} className="h-full w-full" data-testid="share-card-img" />
           ) : (
-            <div className="flex h-full items-center justify-center text-slate-400">
-              {preview && 'error' in preview ? preview.error : 'Drawing the card…'}
-            </div>
+            <div className="flex h-full items-center justify-center text-muted">{preview && 'error' in preview ? preview.error : 'Drawing the card…'}</div>
           )}
         </div>
-
         <div className="flex flex-wrap items-center gap-2">
           {ready && (
-            <a href={ready.url} download={filename} className="rounded bg-sky-600 px-3 py-1.5 hover:bg-sky-500">
+            <a href={ready.url} download={filename} className={btnPrimary}>
               Download PNG
             </a>
           )}
-          {canShare && (
-            <button onClick={share} className="rounded bg-slate-700 px-3 py-1.5 hover:bg-slate-600">
-              Share…
-            </button>
-          )}
-          <button onClick={copyLink} className="rounded bg-slate-700 px-3 py-1.5 hover:bg-slate-600">
-            Copy link
-          </button>
-          {note && <span className="text-xs text-slate-400">{note}</span>}
+          {canShare && <Button onClick={share}>Share…</Button>}
+          <Button onClick={copyLink}>Copy link</Button>
+          {note && <span className="text-xs text-muted">{note}</span>}
         </div>
-        <p className="break-all font-mono text-[11px] text-slate-500">{link}</p>
+        <p className="break-all font-mono text-2xs text-faint">{link}</p>
+        <p className="text-2xs text-faint">The card says it is an unverified candidate. It never claims a finding.</p>
       </div>
-    </div>,
-    document.body,
+    </Dialog>
   )
 }

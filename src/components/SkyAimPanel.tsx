@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { altAzToRaDec, angularSeparation, compassPoint } from '../lib/astro'
 import { TARGETS, targetPosition, type Target } from '../data/targets'
 import type { SkyPointing, PointingStatus } from '../hooks/useSkyPointing'
+import { Button, Callout, LinkButton, Panel } from './ui'
+import { fieldClass } from './classes'
 
 interface Sensors {
   supported: boolean
@@ -95,112 +97,112 @@ export default function SkyAimPanel({ onPoint, onGoTo, sensors, onClose }: Props
     setPlace({ lat, lon })
   }
 
-  if (minimized) {
-    return (
-      <div className="flex w-[17rem] max-w-[calc(100vw-1.5rem)] items-center justify-between gap-2 rounded bg-black/80 px-3 py-2 text-xs backdrop-blur">
-        <span className="text-slate-200">
-          {place || sensorsOn ? `Looking ${compassPoint(aim.az)}, ${Math.round(aim.alt)}° up` : 'What is above you?'}
-        </span>
-        <span className="flex gap-1">
-          <button onClick={() => setMinimized(false)} className="rounded bg-slate-800 px-2 py-1 hover:bg-slate-700">
-            Show
-          </button>
-          {sensorsOn && (
-            <button onClick={sensors.stop} className="rounded bg-sky-700 px-2 py-1 hover:bg-sky-600">
-              Stop
-            </button>
-          )}
-        </span>
-      </div>
-    )
-  }
-
-  const field = 'w-20 rounded bg-slate-900 px-2 py-1 text-slate-100 outline-none ring-sky-600 focus:ring-1'
+  const looking = `Looking ${compassPoint(aim.az)}, ${Math.round(aim.alt)}° up`
   return (
-    <div className="max-h-[calc(100vh-19rem)] min-h-[14rem] w-[17rem] max-w-[calc(100vw-1.5rem)] space-y-3 overflow-y-auto rounded bg-black/80 p-3 text-xs backdrop-blur">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-sm font-medium text-slate-100">What is above you?</div>
-          <div className="text-slate-400">The map shows the sky you would see, right now.</div>
-        </div>
-        <span className="flex gap-1">
-          <button onClick={() => setMinimized(true)} aria-label="Minimize" title="Minimize: see the map" className="rounded bg-slate-800 px-2 py-1 hover:bg-slate-700">
-            –
-          </button>
-          <button onClick={onClose} aria-label="Close" className="rounded bg-slate-800 px-2 py-1 hover:bg-slate-700">
-            ✕
-          </button>
-        </span>
-      </div>
-
-      <div className="space-y-1">
-        <div className="text-slate-300">1. Where are you?</div>
-        <button onClick={locate} disabled={locating} className="w-full rounded bg-sky-700 px-2 py-1.5 hover:bg-sky-600 disabled:opacity-50">
-          {locating ? 'Asking your browser…' : 'Use my location'}
-        </button>
-        <div className="flex items-center gap-1">
-          <input value={latText} onChange={e => setLatText(e.target.value)} placeholder="Lat" aria-label="Latitude" className={field} />
-          <input value={lonText} onChange={e => setLonText(e.target.value)} placeholder="Lon" aria-label="Longitude" className={field} />
-          <button onClick={useTyped} className="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600">
-            Use
-          </button>
-        </div>
-        <div className="text-[11px] text-slate-500">North and east are positive (Madrid: 40.4, -3.7). It stays on your device.</div>
-        {place && (
-          <div className="text-slate-300">
-            Location: {place.lat.toFixed(2)}°, {place.lon.toFixed(2)}°
+    <Panel
+      title={minimized && (place || sensorsOn) ? `${looking}${sensorsOn ? ' (approximate)' : ''}` : 'What is above you?'}
+      subtitle="Say where you are and where you look. The map shows that sky, right now."
+      onClose={onClose}
+      minimised={minimized}
+      onMinimise={() => setMinimized(m => !m)}
+      minimiseEverywhere
+      actions={
+        minimized && sensorsOn ? (
+          <Button size="sm" variant="primary" onClick={sensors.stop}>
+            Stop
+          </Button>
+        ) : undefined
+      }
+      className="h-full"
+    >
+      <div className="space-y-5 text-xs">
+        <section className="space-y-2">
+          <h3 className="label-caps text-faint">1 · Where are you?</h3>
+          <Button onClick={locate} disabled={locating} className="w-full">
+            {locating ? 'Asking your browser…' : 'Use my location'}
+          </Button>
+          <div className="flex items-end gap-2">
+            <label className="min-w-0 flex-1">
+              <span className="mb-1 block text-muted">Latitude</span>
+              <input value={latText} onChange={e => setLatText(e.target.value)} inputMode="decimal" placeholder="40.4" aria-label="Latitude" className={`${fieldClass} font-mono`} />
+            </label>
+            <label className="min-w-0 flex-1">
+              <span className="mb-1 block text-muted">Longitude</span>
+              <input value={lonText} onChange={e => setLonText(e.target.value)} inputMode="decimal" placeholder="-3.7" aria-label="Longitude" className={`${fieldClass} font-mono`} />
+            </label>
+            <Button onClick={useTyped}>Use</Button>
           </div>
+          <p className="text-2xs text-faint">North and east are positive (Madrid: 40.4, -3.7). Your location stays on this device.</p>
+          {place && (
+            <p className="font-mono text-muted">
+              {place.lat.toFixed(2)}°, {place.lon.toFixed(2)}°
+            </p>
+          )}
+          {placeError && <Callout tone="caution">{placeError}</Callout>}
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="label-caps text-faint">2 · Which way do you look?</h3>
+          <div className="flex gap-1.5">
+            {([['N', 0], ['E', 90], ['S', 180], ['W', 270]] as const).map(([name, deg]) => (
+              <Button key={name} size="sm" onClick={() => setAz(deg)} disabled={sensorsOn} pressed={!sensorsOn && Math.round(aim.az) === deg ? true : undefined} className="flex-1">
+                {name}
+              </Button>
+            ))}
+          </div>
+          <input type="range" min={0} max={359} value={Math.round(aim.az)} onChange={e => setAz(Number(e.target.value))} disabled={sensorsOn} aria-label="Direction" className="w-full" />
+          <p className="text-muted">
+            Towards <span className="text-paper">{compassPoint(aim.az)}</span> <span className="font-mono">({Math.round(aim.az)}°, 0 = north)</span>
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="label-caps text-faint">3 · How high?</h3>
+          <input type="range" min={0} max={90} value={Math.round(Math.max(0, aim.alt))} onChange={e => setAlt(Number(e.target.value))} disabled={sensorsOn} aria-label="Height above the horizon" className="w-full" />
+          <div className="flex items-center justify-between gap-2 text-muted">
+            <span>
+              <span className="font-mono text-paper">{Math.round(aim.alt)}°</span> above the horizon (90° = straight up)
+            </span>
+            <Button size="sm" onClick={() => setAlt(90)} disabled={sensorsOn}>
+              Straight up
+            </Button>
+          </div>
+        </section>
+
+        {!place && <Callout>Set your location (step 1) and the map will follow your choices.</Callout>}
+        {place && aim.alt < 0 && <Callout tone="caution">That is below the horizon: you would be looking at the ground.</Callout>}
+        {sky && nearest && (
+          <p className="border-t border-rule pt-3 text-muted">
+            Near this view: <span className="font-display text-sm italic text-paper">{nearest.target.name}</span>, {Math.round(nearest.deg)}° away.{' '}
+            <LinkButton onClick={() => onGoTo(nearest.target)}>Go to it</LinkButton>
+          </p>
         )}
-        {placeError && <div className="rounded bg-amber-900/70 px-2 py-1 text-amber-100">{placeError}</div>}
+
+        {sensors.supported && (
+          <section className="space-y-2 border-t border-rule pt-4">
+            <h3 className="label-caps text-faint">Or let the phone aim</h3>
+            <Button
+              onClick={
+                sensorsOn
+                  ? sensors.stop
+                  : () => {
+                      setMinimized(true)
+                      sensors.start()
+                    }
+              }
+              pressed={sensors.status === 'active' ? true : undefined}
+              className="w-full"
+            >
+              {sensorsOn ? 'Stop using my phone’s sensors' : 'Use my phone’s sensors instead'}
+            </Button>
+            {sensors.status === 'starting' && <p className="text-muted">Waiting for the sensors…</p>}
+            {sensors.status === 'active' && (
+              <Callout tone="caution">Approximate: phone compasses are off by several degrees. If it points the wrong way, wave the phone in a figure 8.</Callout>
+            )}
+            {sensors.status === 'error' && sensors.error && <Callout tone="error">{sensors.error}</Callout>}
+          </section>
+        )}
       </div>
-
-      <div className="space-y-1">
-        <div className="text-slate-300">2. Which way do you look?</div>
-        <div className="flex gap-1">
-          {([['N', 0], ['E', 90], ['S', 180], ['W', 270]] as const).map(([name, deg]) => (
-            <button key={name} onClick={() => setAz(deg)} disabled={sensorsOn} className="flex-1 rounded bg-slate-800 py-1 hover:bg-slate-700 disabled:opacity-50">
-              {name}
-            </button>
-          ))}
-        </div>
-        <input type="range" min={0} max={359} value={Math.round(aim.az)} onChange={e => setAz(Number(e.target.value))} disabled={sensorsOn} aria-label="Direction" className="w-full accent-sky-500" />
-        <div className="text-slate-400">
-          Towards {compassPoint(aim.az)} ({Math.round(aim.az)}°, 0 = north)
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <div className="text-slate-300">3. How high?</div>
-        <input type="range" min={0} max={90} value={Math.round(Math.max(0, aim.alt))} onChange={e => setAlt(Number(e.target.value))} disabled={sensorsOn} aria-label="Height above the horizon" className="w-full accent-sky-500" />
-        <div className="flex items-center justify-between text-slate-400">
-          <span>{Math.round(aim.alt)}° above the horizon (90° = straight up)</span>
-          <button onClick={() => setAlt(90)} disabled={sensorsOn} className="rounded bg-slate-800 px-2 py-0.5 hover:bg-slate-700 disabled:opacity-50">
-            Straight up
-          </button>
-        </div>
-      </div>
-
-      {!place && <p className="rounded bg-slate-900 px-2 py-1 text-slate-300">Set your location (step 1) and the map will follow your choices.</p>}
-      {place && aim.alt < 0 && <p className="rounded bg-amber-900/70 px-2 py-1 text-amber-100">That is below the horizon: you would be looking at the ground.</p>}
-      {sky && nearest && (
-        <div className="rounded bg-slate-900 px-2 py-1.5 text-slate-200">
-          Near this view: <strong>{nearest.target.name}</strong>, {Math.round(nearest.deg)}° away.{' '}
-          <button onClick={() => onGoTo(nearest.target)} className="underline hover:text-sky-300">
-            Go to it
-          </button>
-        </div>
-      )}
-
-      {sensors.supported && (
-        <div className="space-y-1 border-t border-slate-700 pt-2">
-          <button onClick={sensorsOn ? sensors.stop : () => { setMinimized(true); sensors.start() }} aria-pressed={sensors.status === 'active'} className={`w-full rounded px-2 py-1.5 ${sensorsOn ? 'bg-sky-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
-            {sensorsOn ? 'Stop using my phone’s sensors' : 'Use my phone’s sensors instead'}
-          </button>
-          {sensors.status === 'starting' && <p className="text-slate-300">Waiting for the sensors…</p>}
-          {sensors.status === 'active' && <p className="text-slate-400">Approximate: phone compasses are off by several degrees. If it points the wrong way, wave the phone in a figure 8.</p>}
-          {sensors.status === 'error' && sensors.error && <p className="rounded bg-amber-900/70 px-2 py-1">{sensors.error}</p>}
-        </div>
-      )}
-    </div>
+    </Panel>
   )
 }

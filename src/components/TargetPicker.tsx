@@ -1,72 +1,36 @@
-import { useEffect, useRef, useState } from 'react'
 import { TARGETS, type Target } from '../data/targets'
 import { useTargetFacts } from '../hooks/useTargetFacts'
-import { distanceText, findTarget } from '../lib/story'
+import { distanceText, findTarget, lightStory } from '../lib/story'
+import { ArrowRightIcon } from './icons'
 
 interface Props {
   onSelect: (target: Target) => void
 }
 
-/** Drop-down with the five points of interest; picking one moves the map to it. */
+/** The five points of interest, as an index: picking one moves the map to it. */
 export default function TargetPicker({ onSelect }: Props) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
   const facts = useTargetFacts()
-
-  // Close on outside click or Escape.
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const onKeyDown = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
-
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
-      >
-        <span>Points of interest</span>
-        <span aria-hidden="true" className={`text-xs transition-transform ${open ? 'rotate-180' : ''}`}>
-          ▼
-        </span>
-      </button>
-
-      {open && (
-        <ul
-          role="listbox"
-          aria-label="Points of interest"
-          className="absolute left-0 top-full z-20 mt-1 w-72 overflow-hidden rounded bg-black/90 shadow-lg backdrop-blur"
-        >
-          {TARGETS.map(t => (
-            <li key={t.id} role="option" aria-selected={false}>
-              <button
-                onClick={() => {
-                  onSelect(t)
-                  setOpen(false)
-                }}
-                className="block w-full px-3 py-2 text-left hover:bg-slate-800"
-              >
-                <span className="block text-sm">{t.name}</span>
-                <span className="block text-xs text-slate-400">
-                  {t.note}
-                  {distanceText(findTarget(facts, t.name)) ? ` · ${distanceText(findTarget(facts, t.name))}` : ''}
+    <ul aria-label="Points of interest" className="divide-y divide-rule">
+      {TARGETS.map(t => {
+        const f = findTarget(facts, t.name)
+        const distance = distanceText(f)
+        return (
+          <li key={t.id}>
+            <button onClick={() => onSelect(t)} className="group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-raised">
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="font-display text-lg leading-6 text-paper">{t.name}</span>
+                  {distance && <span className="shrink-0 font-mono text-2xs text-faint">{distance}</span>}
                 </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                <span className="block text-xs text-muted">{t.note}</span>
+                {lightStory(f) && <span className="mt-1 block font-display text-sm italic leading-snug text-muted">{lightStory(f)}</span>}
+              </span>
+              <ArrowRightIcon className="mt-1 h-4 w-4 shrink-0 text-faint transition-colors group-hover:text-accent" />
+            </button>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

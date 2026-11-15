@@ -17,17 +17,18 @@ export default function JobProgressBar({ job, fallbackText }: { job: JobProgress
   const phrase = useRotatingPhrase(job?.stage === 'difference' ? 'subtraction' : 'generic')
   return (
     <div className="space-y-2 text-sm">
-      <div className="flex justify-between">
-        <span>{STAGE_LABEL[job?.stage ?? 'queued'] ?? job?.stage}</span>
-        <span className="tabular-nums text-slate-400">
-          {pct}%{job?.etaSeconds != null ? ` · ~${job.etaSeconds}s left` : ''}
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-display text-lg text-paper">{STAGE_LABEL[job?.stage ?? 'queued'] ?? job?.stage}</span>
+        <span className="font-mono text-xs tabular-nums text-muted">
+          {pct}%{job?.etaSeconds != null ? ` · ~${job.etaSeconds} s left` : ''}
         </span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded bg-slate-700">
-        <div className="h-full bg-sky-500 transition-all" style={{ width: `${pct}%` }} />
+      <div className="h-0.5 bg-rule-strong" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+        <div className="h-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-xs text-slate-300">{job?.message ?? fallbackText}</p>
-      <p className="text-[11px] italic text-slate-500">{phrase}</p>
+      <p className="text-xs text-muted">{job?.message ?? fallbackText}</p>
+      {/* ambience, never status: it sits under the real progress */}
+      <p className="font-display text-sm italic text-faint">{phrase}</p>
     </div>
   )
 }

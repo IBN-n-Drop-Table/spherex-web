@@ -14,6 +14,7 @@ import type {
   LoadingPhrasesResponse,
   TargetSummary,
   JobResponse,
+  SkyPatchResponse,
   SkyQuery,
   SpectrumResponse,
 } from '../types/api'
@@ -24,6 +25,11 @@ import type {
  */
 export function createSkyPatchJob(q: SkyQuery, signal?: AbortSignal) {
   return postJson<JobResponse>('/api/v1/jobs', { kind: 'sky_patch', ...q }, { signal })
+}
+
+/** The cached patch of one of the five objects (by key), used to draw its image on a share card. */
+export function getTargetPatch(key: string, signal?: AbortSignal) {
+  return getJson<SkyPatchResponse>('/api/v1/sky-patch', { target: key }, { signal })
 }
 
 export function getJob(jobId: string, signal?: AbortSignal) {

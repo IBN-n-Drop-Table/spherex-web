@@ -87,7 +87,12 @@ export default function SkyWipe({ A, main, enabled }: Props) {
     }
   }, [A, main])
 
-  const dragTo = (clientX: number) => setPos(clamp(clientX / window.innerWidth))
+  // The bar lives in the map area, which no longer spans the window: measure against that area.
+  const dragTo = (clientX: number) => {
+    const host = barRef.current?.offsetParent
+    const r = host?.getBoundingClientRect()
+    if (r && r.width > 0) setPos(clamp((clientX - r.left) / r.width))
+  }
 
   return (
     <div className={enabled ? undefined : 'hidden'}>
@@ -98,17 +103,11 @@ export default function SkyWipe({ A, main, enabled }: Props) {
         <div ref={divRef} className="h-full w-full" />
       </div>
 
-      <div
-        className="pointer-events-none absolute top-16 z-[2] -translate-x-full pr-3 text-xs"
-        style={{ left: `${pos * 100}%` }}
-      >
-        <span className="rounded bg-black/60 px-2 py-1 text-amber-200">What your eye sees</span>
+      <div className="pointer-events-none absolute top-3 z-[2] -translate-x-full pr-4" style={{ left: `${pos * 100}%` }}>
+        <span className="label-caps whitespace-nowrap bg-ink/85 px-2 py-1 text-paper">What your eye sees</span>
       </div>
-      <div
-        className="pointer-events-none absolute top-16 z-[2] pl-3 text-xs"
-        style={{ left: `${pos * 100}%` }}
-      >
-        <span className="rounded bg-black/60 px-2 py-1 text-sky-200">What infrared sees</span>
+      <div className="pointer-events-none absolute top-3 z-[2] pl-4" style={{ left: `${pos * 100}%` }}>
+        <span className="label-caps whitespace-nowrap bg-ink/85 px-2 py-1 text-paper">What infrared sees</span>
       </div>
 
       <div
@@ -119,7 +118,7 @@ export default function SkyWipe({ A, main, enabled }: Props) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(pos * 100)}
-        className="absolute inset-y-0 z-[2] flex w-8 -translate-x-1/2 cursor-ew-resize touch-none justify-center outline-none"
+        className="absolute inset-y-0 z-[2] flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center focus-visible:outline-none [&:focus-visible>div:last-child]:outline [&:focus-visible>div:last-child]:outline-2 [&:focus-visible>div:last-child]:outline-offset-2 [&:focus-visible>div:last-child]:outline-accent"
         style={{ left: `${pos * 100}%` }}
         onPointerDown={e => {
           e.currentTarget.setPointerCapture(e.pointerId)
@@ -135,9 +134,11 @@ export default function SkyWipe({ A, main, enabled }: Props) {
           e.preventDefault()
         }}
       >
-        <div className="h-full w-0.5 bg-white/90 shadow" />
-        <div className="absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-slate-900/80 text-sm text-white shadow">
-          ⇆
+        <div className="h-full w-px bg-paper" />
+        <div className="absolute top-1/2 flex h-11 w-7 -translate-y-1/2 items-center justify-center gap-0.5 border border-paper bg-ink text-paper">
+          <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 4L2.5 8 6 12M10 4l3.5 4-3.5 4" />
+          </svg>
         </div>
       </div>
     </div>

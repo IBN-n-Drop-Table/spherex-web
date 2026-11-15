@@ -17,7 +17,7 @@ interface Props {
 
 // A view smaller than this would be sub-pixel on the minimap, so we draw a box of at least this size.
 const MIN_BOX_DEG = 6
-const BOX_COLOR = '#ff54ff'
+const BOX_COLOR = '#74c3b1' // the accent: where the main map is looking
 const SNAP_PX = 9 // a press this close to a target marker counts as pressing the marker
 const ALL_SKY_FOV_DEG = 360
 const FOV_RETRY_MS = 150
@@ -179,7 +179,7 @@ export default function MiniMap({ footprint, onPick }: Props) {
   const onPointerLeave = () => setHover(null)
 
   return (
-    <div className="absolute right-3 top-3 z-10 h-[130px] w-[260px] overflow-hidden rounded border border-slate-600 bg-black">
+    <div className="absolute right-3 top-3 z-10 h-[76px] w-[152px] overflow-hidden border border-rule-strong bg-sunken md:h-[130px] md:w-[260px]">
       <div ref={divRef} className="pointer-events-none h-full w-full" />
       <div
         onPointerDown={onPointerDown}
@@ -193,7 +193,7 @@ export default function MiniMap({ footprint, onPick }: Props) {
         title={hover ?? 'Click or drag to move the view'}
       />
       {hover && (
-        <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/80 px-2 py-0.5 text-[11px] text-yellow-300">
+        <div className="pointer-events-none absolute left-1 top-1 bg-ink/85 px-1.5 py-0.5 font-display text-xs italic text-paper">
           {hover}
         </div>
       )}

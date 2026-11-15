@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { HUNTER_CARD_HEIGHT, HUNTER_CARD_WIDTH, renderHunterCard } from '../lib/hunterCard'
 import type { FinishResult } from '../types/api'
+import { Button, Dialog } from './ui'
+import { btnPrimary } from './classes'
 
 type Preview = { blob: Blob; url: string } | { error: string }
 
@@ -30,11 +31,6 @@ export default function HunterCardDialog({ result, onClose }: { result: FinishRe
     }
   }, [result])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const ready = preview && 'blob' in preview ? preview : null
   const filename = `star-hunter-${result.nickname.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`
@@ -49,36 +45,25 @@ export default function HunterCardDialog({ result, onClose }: { result: FinishRe
     }
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Star hunter card">
-      <div className="w-[min(92vw,760px)] space-y-3 rounded-lg bg-slate-900 p-4 text-sm text-slate-100 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-medium">Star hunter card</h2>
-          <button onClick={onClose} aria-label="Close" className="rounded bg-slate-800 px-2 py-1 hover:bg-slate-700">
-            ✕
-          </button>
-        </div>
-        <div className="overflow-hidden rounded bg-black" style={{ aspectRatio: `${HUNTER_CARD_WIDTH} / ${HUNTER_CARD_HEIGHT}` }}>
+  return (
+    <Dialog title="Star hunter card" onClose={onClose} width="max-w-3xl" raised>
+      <div className="space-y-3">
+        <div className="overflow-hidden border border-rule-strong bg-sunken" style={{ aspectRatio: `${HUNTER_CARD_WIDTH} / ${HUNTER_CARD_HEIGHT}` }}>
           {ready ? (
             <img src={ready.url} alt={`Star hunter ${result.nickname}: ${result.score} points`} className="h-full w-full" data-testid="hunter-card-img" />
           ) : (
-            <div className="flex h-full items-center justify-center text-slate-400">{preview && 'error' in preview ? preview.error : 'Drawing the card…'}</div>
+            <div className="flex h-full items-center justify-center text-muted">{preview && 'error' in preview ? preview.error : 'Drawing the card…'}</div>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {ready && (
-            <a href={ready.url} download={filename} className="rounded bg-sky-600 px-3 py-1.5 hover:bg-sky-500">
+            <a href={ready.url} download={filename} className={btnPrimary}>
               Download PNG
             </a>
           )}
-          {canShare && (
-            <button onClick={share} className="rounded bg-slate-700 px-3 py-1.5 hover:bg-slate-600">
-              Share…
-            </button>
-          )}
+          {canShare && <Button onClick={share}>Share…</Button>}
         </div>
       </div>
-    </div>,
-    document.body,
+    </Dialog>
   )
 }

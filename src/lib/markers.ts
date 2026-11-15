@@ -6,7 +6,7 @@ import type { Catalog } from 'aladin-lite'
 
 type AladinLib = (typeof import('aladin-lite'))['default']
 
-export const POI_COLOR = '#facc15' // points of interest: stands out against the infrared sky
+export const POI_COLOR = '#ece6d6' // points of interest: paper white, like labels on a star chart
 
 /**
  * Marks the five challenge targets on an Aladin map, at their SPHEREx-epoch position
@@ -27,7 +27,7 @@ export function addTargetMarkers(
     displayLabel: opts.labels,
     labelColumn: 'name',
     labelColor: POI_COLOR,
-    labelFont: '12px sans-serif',
+    labelFont: 'italic 14px Spectral, Georgia, serif',
   })
   // Attach the catalog to the map first, then fill it (the documented order).
   aladin.addCatalog(catalog)

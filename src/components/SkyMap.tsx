@@ -59,6 +59,7 @@ const UI_OPTIONS = {
   ...HIDDEN_UI,
   showZoomControl: true, // the only Aladin control we keep
   showReticle: true,
+  reticleColor: '#ece6d6', // paper white, not Aladin's magenta
   projection: PROJECTION,
 }
 
@@ -245,7 +246,7 @@ export default function SkyMap({
       </div>
       {wipeEverOn && wipeLib && <SkyWipe A={wipeLib.A} main={wipeLib.aladin} enabled={wipe} />}
       {error && (
-        <p className="absolute inset-x-0 top-1/2 z-0 text-center text-sm text-red-400">{error}</p>
+        <p className="absolute inset-x-0 top-1/2 z-0 px-6 text-center text-sm text-danger">{error}</p>
       )}
     </>
   )

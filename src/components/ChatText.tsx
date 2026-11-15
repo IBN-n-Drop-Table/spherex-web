@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 function inline(text: string): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
-      <strong key={i} className="font-semibold text-slate-50">
+      <strong key={i} className="font-semibold text-paper">
         {part.slice(2, -2)}
       </strong>
     ) : (
