@@ -36,6 +36,8 @@ interface Props {
   onCommunitySelect?: (reportId: string) => void
   /** Expected position(s) of the target, to guide the eye towards a faint dipole. */
   motion?: MotionMarks | null
+  /** The picture lets the pointer through to whatever is behind it (a map to drag); only the markers catch it. */
+  passThrough?: boolean
 }
 
 /**
@@ -43,7 +45,7 @@ interface Props {
  * so any image size works and markers use pixel_x/pixel_y directly
  * (0-based, origin top-left, measured on the served image).
  */
-export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = null, onSelect, onProbe, probe = null, communityMarkers = [], highlightedCommunityId = null, onCommunitySelect, motion = null }: Props) {
+export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = null, onSelect, onProbe, probe = null, communityMarkers = [], highlightedCommunityId = null, onCommunitySelect, motion = null, passThrough = false }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const src = resolveAssetUrl(imageUrl)
   const size = useImageSize(src)
@@ -73,7 +75,7 @@ export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = 
       preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label={alt}
-      className={`absolute inset-0 h-full w-full ${onProbe ? 'cursor-crosshair' : ''}`}
+      className={`absolute inset-0 h-full w-full ${onProbe ? 'cursor-crosshair' : ''} ${passThrough ? 'pointer-events-none' : ''}`}
     >
       <image href={src} width={width} height={height} />
       {communityMarkers.map(m => {
@@ -85,6 +87,7 @@ export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = 
             role="button"
             tabIndex={0}
             aria-label={m.label}
+            pointerEvents="auto"
             className="cursor-pointer outline-none"
             onClick={e => {
               e.stopPropagation() // a marker is not a free click
@@ -112,6 +115,7 @@ export default function SkyViewer({ imageUrl, alt, anomalies = [], selectedId = 
             tabIndex={onSelect ? 0 : undefined}
             aria-label={label}
             aria-pressed={onSelect ? a.anomaly_id === selectedId : undefined}
+            pointerEvents="auto"
             className={onSelect ? 'cursor-pointer outline-none' : undefined}
             onClick={e => {
               e.stopPropagation() // a marker is not a free click

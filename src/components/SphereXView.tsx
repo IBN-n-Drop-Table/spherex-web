@@ -4,13 +4,14 @@ import { useTargetFacts } from '../hooks/useTargetFacts'
 import { findTarget, lightStory } from '../lib/story'
 import { useNearbyStar } from '../hooks/useNearbyStar'
 import { nearbyStarText } from '../lib/simbad'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSkyPatch } from '../hooks/useSkyPatch'
 import { useAutoplay } from '../hooks/useAutoplay'
 import { LAYER_DETECT, LAYER_DIFF } from '../lib/layers'
 import { buildDiffFrames, totalFrame, type DiffFrame } from '../lib/diffFrames'
 import { fmt } from '../lib/coords'
 import SkyViewer from './SkyViewer'
+import SkyContext, { type SkyContextHandle } from './SkyContext'
 import SpectrumPanel, { type SpectrumView } from './SpectrumPanel'
 import LightCurvePanel from './LightCurvePanel'
 import CommunityPanel, { type ReportSelection } from './CommunityPanel'
@@ -42,6 +43,8 @@ const DEFAULT_FILTERS = ['H2O', 'CO2', 'CO']
 // cached targets are always 5. The sky map can zoom much wider, so the request is clamped.
 const PATCH_FOV_MIN_ARCMIN = 1
 const PATCH_FOV_MAX_ARCMIN = 15
+// With the surroundings on, the picture takes this share of the stage's shorter side at first.
+const AROUND_SHARE = 0.6
 const patchFov = (fov: number) => Math.min(Math.max(fov, PATCH_FOV_MIN_ARCMIN), PATCH_FOV_MAX_ARCMIN)
 
 interface Props {
@@ -115,6 +118,9 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
   const [noteOpen, setNoteOpen] = useState(false) // the long scientific caveat (collapsed by default)
   const [motionOn, setMotionOn] = useState(true) // rings + arrow where the target should be (checkbox in the difference notice)
   const fps = FPS_OPTIONS[fpsIdx]
+  const [showAround, setShowAround] = useState(true) // the sky around the patch (pan / zoom) behind the picture
+  const [showPicture, setShowPicture] = useState(true) // hide the SPHEREx picture: only its outline stays
+  const aroundRef = useRef<SkyContextHandle>(null)
   const diff = data?.difference_imaging
   const patchKey = data ? `${data.patch.wcs.crval1}|${data.patch.wcs.crval2}` : null
 
@@ -492,29 +498,69 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
         </div>
 
         <div className="relative min-h-0 flex-1 bg-sunken">
+          {data && imageUrl && (() => {
+            const handleProbe = (x: number, y: number) => {
+              if (!patchKey) return
+              setProbe({ x, y, patchKey })
+              setSelectedAnomaly(null)
+              showSpectrum()
+            }
+            const viewer = (around: boolean) => (
+              <SkyViewer
+                imageUrl={imageUrl}
+                alt={`${data.target_info.name} ${diffLike ? (activeDiff?.label ?? '') : (epoch?.epoch_id ?? '')} ${layer}`}
+                anomalies={anomalies}
+                selectedId={selectedAnomaly}
+                onSelect={id => {
+                  setSelectedAnomaly(id)
+                  setProbe(null)
+                  showSpectrum()
+                }}
+                probe={activeProbe}
+                communityMarkers={communityMarkers}
+                motion={motion}
+                highlightedCommunityId={highlightReport}
+                onCommunitySelect={setHighlightReport}
+                onProbe={around ? undefined : handleProbe}
+                passThrough={around}
+              />
+            )
+            return showAround ? (
+              <SkyContext ref={aroundRef} patch={data.patch} share={AROUND_SHARE} onPick={handleProbe} showPicture={showPicture}>
+                {viewer(true)}
+              </SkyContext>
+            ) : (
+              viewer(false)
+            )
+          })()}
+
           {data && imageUrl && (
-            <SkyViewer
-              imageUrl={imageUrl}
-              alt={`${data.target_info.name} ${diffLike ? (activeDiff?.label ?? '') : (epoch?.epoch_id ?? '')} ${layer}`}
-              anomalies={anomalies}
-              selectedId={selectedAnomaly}
-              onSelect={id => {
-                setSelectedAnomaly(id)
-                setProbe(null)
-                showSpectrum()
-              }}
-              probe={activeProbe}
-              communityMarkers={communityMarkers}
-              motion={motion}
-              highlightedCommunityId={highlightReport}
-              onCommunitySelect={setHighlightReport}
-              onProbe={(x, y) => {
-                if (!patchKey) return
-                setProbe({ x, y, patchKey })
-                setSelectedAnomaly(null)
-                showSpectrum()
-              }}
-            />
+            <div className="absolute right-2 top-2 z-[2] flex gap-1">
+              {showAround && (
+                <button
+                  onClick={() => setShowPicture(v => !v)}
+                  aria-pressed={!showPicture}
+                  className="label-caps border border-rule-strong bg-ink/80 px-2 py-1 text-2xs text-paper hover:bg-ink"
+                >
+                  {showPicture ? 'Hide SPHEREx' : 'Show SPHEREx'}
+                </button>
+              )}
+              {showAround && (
+                <button onClick={() => aroundRef.current?.reset()} className="label-caps border border-rule-strong bg-ink/80 px-2 py-1 text-2xs text-paper hover:bg-ink">
+                  Reset view
+                </button>
+              )}
+              <button
+                onClick={() => setShowAround(a => !a)}
+                aria-pressed={showAround}
+                className="label-caps border border-rule-strong bg-ink/80 px-2 py-1 text-2xs text-paper hover:bg-ink"
+              >
+                {showAround ? 'Hide surroundings' : 'Show surroundings'}
+              </button>
+            </div>
+          )}
+          {data && imageUrl && showAround && (
+            <span className="label-caps pointer-events-none absolute bottom-2 left-2 z-[2] bg-ink/75 px-1.5 py-0.5 text-2xs text-muted">Drag and zoom the sky · around the patch: AllWISE, not SPHEREx</span>
           )}
 
           {data?.fallback && (
