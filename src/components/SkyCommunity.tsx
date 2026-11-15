@@ -17,7 +17,7 @@ interface Props {
   onLocate: (report: CitizenReport) => void
 }
 
-/** Community discoveries on the sky map: the list, a switch for the markers, and "go to". */
+/** Community sightings on the sky map: the list, a switch for the markers, and "go to". */
 export default function SkyCommunity({ open, onToggle, feed, showMarkers, onShowMarkersChange, highlightId, onLocate }: Props) {
   const verify = useVerify(feed.replace)
   const [sharing, setSharing] = useState<CitizenReport | null>(null)
@@ -31,7 +31,7 @@ export default function SkyCommunity({ open, onToggle, feed, showMarkers, onShow
           open ? 'bg-sky-600' : 'bg-black/70 hover:bg-slate-800'
         }`}
       >
-        <span>Community discoveries</span>
+        <span>Community sightings</span>
         {open && !feed.loading && !feed.error && <span className="tabular-nums text-xs">{feed.reports.length}</span>}
       </button>
 
@@ -42,7 +42,7 @@ export default function SkyCommunity({ open, onToggle, feed, showMarkers, onShow
             Show on the map
           </label>
           <p className="mt-1 text-[11px] text-slate-500">
-            To report your own discovery, open the SPHEREx data view and use its Community panel.
+            To report your own sighting, open the SPHEREx data view and use its Community panel.
           </p>
           {verify.error && <p className="mt-2 rounded bg-slate-800 px-2 py-1 text-slate-200">{verify.error}</p>}
           <div className="mt-2 max-h-52 overflow-y-auto pr-1">

@@ -3,9 +3,6 @@
  * which propagates every catalogue to J2000) plus proper motion, because these are FAST movers:
  * Barnard's Star shifts ~4.4 arcmin between J2000 and the SPHEREx survey, WISE 0855 ~3.5 arcmin.
  * `targetPosition()` moves them to the SPHEREx epoch so the map centres on where they are now.
- *
- * TODO: replace with the backend's `crval` per target (or a GET /targets endpoint) once available;
- * the backend centres its patches on the star's real position at epoch 1.
  */
 export interface Target {
   id: string

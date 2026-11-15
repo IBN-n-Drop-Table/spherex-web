@@ -53,7 +53,7 @@ export default function ReportCard({ report, verified, busy, highlighted, onVeri
           )}
           <button
             onClick={onShare}
-            title="Create a card to share this discovery"
+            title="Create a card to share this sighting"
             className="rounded bg-slate-800 px-2 py-0.5 text-[11px] hover:bg-slate-700"
           >
             Share

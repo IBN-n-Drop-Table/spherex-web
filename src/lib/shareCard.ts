@@ -6,14 +6,14 @@ import type { CitizenReport, Patch } from '../types/api'
 export const CARD_WIDTH = 1200
 export const CARD_HEIGHT = 630
 
-/** The image to crop the discovery from, with the geometry needed to find the position in it. */
+/** The image to crop the sighting from, with the geometry needed to find the position in it. */
 export interface CardImage {
   url: string
   patch: Patch
   targetName: string // the report is only drawn on it if it is about this target
 }
 
-const CUTOUT_PX = 110 // image pixels shown around the discovery (about 55 arcsec)
+const CUTOUT_PX = 110 // image pixels shown around the sighting (about 55 arcsec)
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
 const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace'
 
@@ -68,7 +68,7 @@ export function positionInImage(report: CitizenReport, image: CardImage): { x: n
 }
 
 /**
- * Draws the shareable discovery card (1200x630, the size social networks preview).
+ * Draws the shareable sighting card (1200x630, the size social networks preview).
  * Honest by design: it says "candidate" and "needs verification", never "discovered".
  */
 export async function renderShareCard(report: CitizenReport, image: CardImage | null): Promise<HTMLCanvasElement> {
@@ -140,7 +140,7 @@ export async function renderShareCard(report: CitizenReport, image: CardImage | 
   const x = 560
   ctx.fillStyle = '#38bdf8'
   ctx.font = `700 17px ${FONT}`
-  ctx.fillText('CITIZEN DISCOVERY CANDIDATE', x, 118)
+  ctx.fillText('CITIZEN SIGHTING', x, 118)
 
   ctx.fillStyle = kind.color
   ctx.beginPath()
@@ -170,7 +170,7 @@ export async function renderShareCard(report: CitizenReport, image: CardImage | 
 
   ctx.fillStyle = '#f8fafc'
   ctx.font = `600 24px ${FONT}`
-  ctx.fillText(`Found by ${report.discoverer}`, x, 518)
+  ctx.fillText(`Reported by ${report.discoverer}`, x, 518)
   ctx.fillStyle = '#94a3b8'
   ctx.font = `18px ${FONT}`
   const when = new Date(report.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })

@@ -12,6 +12,11 @@ the detector finds says that it needs human verification.
 
 - **Sky map** – an all-sky infrared map (AllWISE) with editable coordinates and field of view, a
   mini-map, and a list of **points of interest**: the five objects of the challenge.
+- **Point at the sky** – *what is above you?* Say where you are (your location, or type latitude and
+  longitude) and choose a direction and a height with two sliders: the map shows that part of the sky
+  right now, and suggests the nearest of the five objects. Works on any computer. On a phone you can
+  let the sensors do the aiming instead (compass, tilt and location, which never leave the device);
+  that mode is approximate, because phone compasses are off by several degrees.
 - **Eye vs infrared** – a draggable bar that shows the same sky in visible light (DSS2) on one side
   and in infrared on the other.
 - **SPHEREx data** – for any position: the timelapse of SPHEREx visits, chemical filters (H₂O, CO₂,
@@ -40,6 +45,15 @@ needed locally. To use another backend: `VITE_API_PROXY=http://localhost:8001 np
 
 Other scripts: `npm run build` (type-checks and writes `dist/`), `npm run preview` (serves the
 build) and `npm run lint`.
+
+### Trying the phone mode on a real phone
+
+The compass and the location only work on a secure (`https`) page, so a plain `http://<your-ip>:5173`
+address will not do. Put an https tunnel in front of the dev server, for example
+`npx cloudflared tunnel --url http://localhost:5173` (or ngrok), and open the address it prints on
+the phone. Inside *Point at the sky*, the option *Use my phone's sensors instead* appears on touch
+devices only. It needs the motion and location permissions, and the phone must report a compass
+direction.
 
 ## Deploy
 

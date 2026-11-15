@@ -1,6 +1,5 @@
 import { cautionLines } from '../lib/caution'
 import ChatPanel from './ChatPanel'
-import GameDialog from './GameDialog'
 import { useTargetFacts } from '../hooks/useTargetFacts'
 import { findTarget, lightStory } from '../lib/story'
 import { useNearbyStar } from '../hooks/useNearbyStar'
@@ -85,7 +84,6 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
   const facts = data?.fallback ? undefined : findTarget(targetFacts, data?.target_info.name)
   // Any other position: what SIMBAD catalogues right there (only when it is not one of the five).
   const nearby = useNearbyStar(ra, dec, data !== null && !data.fallback && !facts)
-  const [gameOpen, setGameOpen] = useState(false) // the "Find what moves" game
   const [infoOpen, setInfoOpen] = useState(false) // details of the Difference / Detections layer
   const [noteOpen, setNoteOpen] = useState(false) // the long scientific caveat (collapsed by default)
   const [motionOn, setMotionOn] = useState(true) // rings + arrow where the target should be (checkbox in the difference notice)
@@ -300,21 +298,12 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
       )}
 
       <div className="absolute left-3 top-3 z-10 flex flex-col items-start gap-2">
-        <div className="flex gap-2">
-          <button
-            onClick={onBack}
-            className="rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
-          >
-            ← Back to sky map
-          </button>
-          <button
-            onClick={() => setGameOpen(true)}
-            title="A short game: two images flicker, click what moved"
-            className="rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
-          >
-            Play: find what moves
-          </button>
-        </div>
+        <button
+          onClick={onBack}
+          className="rounded bg-black/70 px-3 py-2 text-sm backdrop-blur hover:bg-slate-800"
+        >
+          ← Back to sky map
+        </button>
         <div className="rounded bg-black/70 p-3 font-mono text-xs backdrop-blur">
           <div className="text-slate-400">SPHEREx data for</div>
           <div>RA&nbsp; {fmt(ra)}°</div>
@@ -486,8 +475,6 @@ export default function SphereXView({ ra, dec, fov, layer, onLayerChange, onBack
     </div>
   )}
       </div>
-
-      {gameOpen && <GameDialog onClose={() => setGameOpen(false)} />}
 
       {loading && !data && <JobCard job={job} />}
 

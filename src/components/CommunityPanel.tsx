@@ -27,7 +27,7 @@ export interface ReportSelection {
 interface Props {
   targetName: string
   selection: ReportSelection | null
-  /** The image on screen: the card crops the discovery from it. */
+  /** The image on screen: the card crops the sighting from it. */
   cardImage: CardImage | null
   feed: ReportsState
   allTargets: boolean
@@ -40,7 +40,7 @@ interface Props {
   onClose: () => void
 }
 
-/** Community feed for the current target, plus the form to report a discovery. */
+/** Community feed for the current target, plus the form to report a sighting. */
 export default function CommunityPanel({
   targetName,
   selection,
@@ -103,7 +103,7 @@ export default function CommunityPanel({
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-sm font-medium text-slate-100">
-            {mode === 'feed' ? 'Community discoveries' : 'Report a discovery'}
+            {mode === 'feed' ? 'Community sightings' : 'Report a sighting'}
           </div>
           <div className="text-slate-400">
             {mode === 'feed' ? (allTargets ? 'all targets' : targetName) : `about ${targetName}`}
@@ -152,7 +152,7 @@ export default function CommunityPanel({
             ) : feed.error ? (
               <p className="text-rose-300">{feed.error}</p>
             ) : feed.reports.length === 0 ? (
-              <p className="text-slate-400">No reports yet. Be the first to report a discovery.</p>
+              <p className="text-slate-400">No reports yet. Be the first to report a sighting.</p>
             ) : (
               <ul className="space-y-2" data-testid="report-list">
                 {feed.reports.map(r => (

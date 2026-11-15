@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { DEFAULT_STATE, useUrlState } from './hooks/useUrlState'
 import SkyMap, { type SkyFootprint, type SkyMapHandle } from './components/SkyMap'
 import MiniMap from './components/MiniMap'
@@ -8,9 +8,11 @@ import type { CitizenReport } from './types/api'
 import SphereXView from './components/SphereXView'
 import CoordinatesPanel from './components/CoordinatesPanel'
 import TargetPicker from './components/TargetPicker'
-import { TARGET_FOV_ARCMIN, targetPosition } from './data/targets'
+import { TARGET_FOV_ARCMIN, targetPosition, type Target } from './data/targets'
 import Credits from './components/Credits'
 import GameDialog from './components/GameDialog'
+import { useSkyPointing } from './hooks/useSkyPointing'
+import SkyAimPanel from './components/SkyAimPanel'
 
 /**
  * Two views, switched with a button (and the URL: ?view=data):
@@ -26,7 +28,7 @@ export default function App() {
   const [gameOpen, setGameOpen] = useState(false) // the "Find what moves" game (also reachable from the data view)
   const [footprint, setFootprint] = useState<SkyFootprint | null>(null)
 
-  // Community discoveries on the sky map: the list, and (optionally) their markers on the map.
+  // Community sightings on the sky map: the list, and (optionally) their markers on the map.
   const [communityOpen, setCommunityOpen] = useState(false)
   const [showCommunityMarkers, setShowCommunityMarkers] = useState(false)
   const [highlightReport, setHighlightReport] = useState<string | null>(null)
@@ -39,7 +41,29 @@ export default function App() {
     setUrl({ ra: r.ra_deg, dec: r.dec_deg, fov: TARGET_FOV_ARCMIN })
   }
 
+  // "Point your phone at the sky": the map follows the phone's sensors (they stay on the device).
+  const pointing = useSkyPointing(p => mapRef.current?.pointTo(p.ra, p.dec))
+  const [aimOpen, setAimOpen] = useState(false) // "What is above you?" panel
+  const pointMap = useCallback((ra: number, dec: number) => mapRef.current?.pointTo(ra, dec), [])
+  const openAim = () => {
+    if (fov < 1200) setUrl({ fov: 3600 }, { replace: true }) // about the view of a phone camera
+    setAimOpen(true)
+  }
+  const closeAim = () => {
+    pointing.stop()
+    setAimOpen(false)
+    const live = mapRef.current?.getView() // the map moved without the URL: save where it ended up
+    if (live) setUrl(live, { replace: true })
+  }
+  const goToTarget = (t: Target) => {
+    pointing.stop()
+    setAimOpen(false)
+    setUrl({ ...targetPosition(t), fov: TARGET_FOV_ARCMIN })
+  }
+
   const openData = () => {
+    pointing.stop()
+    setAimOpen(false)
     // Read the live map position so a click right after a pan/zoom doesn't use a stale URL.
     const live = mapRef.current?.getView()
     setUrl({ ...(live ?? {}), view: 'data' })
@@ -88,6 +112,15 @@ export default function App() {
               {wipe ? 'Hide comparison' : 'Compare: eye vs infrared'}
             </button>
             <button
+              onClick={aimOpen ? closeAim : openAim}
+              aria-pressed={aimOpen}
+              title="See the part of the sky above you, from where you are, right now"
+              className={`rounded px-3 py-2 text-left text-sm shadow ${aimOpen ? 'bg-sky-600' : 'bg-slate-900/80 hover:bg-slate-800'}`}
+            >
+              {aimOpen ? 'Close: what is above you' : 'Point at the sky'}
+            </button>
+            {aimOpen && <SkyAimPanel onPoint={pointMap} onGoTo={goToTarget} sensors={pointing} onClose={closeAim} />}
+            <button
               onClick={() => setGameOpen(true)}
               title="A short game: two images flicker, click what moved"
               className="rounded bg-slate-900/80 px-3 py-2 text-left text-sm shadow hover:bg-slate-800"
@@ -109,7 +142,7 @@ export default function App() {
           </div>
           <button
             onClick={openData}
-            className="absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-sky-600 px-4 py-2 text-sm font-medium shadow hover:bg-sky-500"
+            className={`absolute bottom-14 left-1/2 z-10 -translate-x-1/2 rounded bg-sky-600 px-4 py-2 text-sm font-medium shadow hover:bg-sky-500 sm:bottom-auto sm:top-3 ${aimOpen ? 'hidden sm:block' : ''}`}
           >
             View SPHEREx data here →
           </button>

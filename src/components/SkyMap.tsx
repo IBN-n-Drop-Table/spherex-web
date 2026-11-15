@@ -23,6 +23,8 @@ export interface SkyFootprint {
 /** Lets the parent read the CURRENT centre/zoom without waiting for the debounced URL update. */
 export interface SkyMapHandle {
   getView(): SkyView | null
+  /** Jumps the map to a position without touching the URL (used while following the phone). */
+  pointTo(ra: number, dec: number): void
 }
 
 interface Props extends SkyView {
@@ -121,6 +123,13 @@ export default function SkyMap({
   })
 
   useImperativeHandle(ref, () => ({
+    pointTo(r, d) {
+      const aladin = aladinRef.current
+      if (!aladin) return
+      aladin.gotoRaDec(r, d)
+      // Our own moves must not be echoed into the URL (Safari limits history updates).
+      ignoreUntil.current = Date.now() + PROGRAMMATIC_MOVE_MS
+    },
     getView() {
       const aladin = aladinRef.current
       if (!aladin) return null

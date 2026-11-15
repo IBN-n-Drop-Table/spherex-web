@@ -6,7 +6,7 @@ import type { CitizenReport } from '../types/api'
 
 interface Props {
   report: CitizenReport
-  /** Image to crop the discovery from; without it the card is text-only. */
+  /** Image to crop the sighting from; without it the card is text-only. */
   image: CardImage | null
   title?: string
   onClose: () => void
@@ -14,8 +14,8 @@ interface Props {
 
 type Preview = { blob: Blob; url: string } | { error: string }
 
-/** Preview of the shareable discovery card, with download / share / copy-link actions. */
-export default function ShareCardDialog({ report, image, title = 'Discovery card', onClose }: Props) {
+/** Preview of the shareable sighting card, with download / share / copy-link actions. */
+export default function ShareCardDialog({ report, image, title = 'Sighting card', onClose }: Props) {
   const [preview, setPreview] = useState<Preview | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const link = reportLink(report)
@@ -53,14 +53,14 @@ export default function ShareCardDialog({ report, image, title = 'Discovery card
   }, [onClose])
 
   const ready = preview && 'blob' in preview ? preview : null
-  const filename = `discovery-${(report.target_name ?? 'sky').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${report.id.slice(0, 8)}.png`
+  const filename = `sighting-${(report.target_name ?? 'sky').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${report.id.slice(0, 8)}.png`
   const file = ready ? new File([ready.blob], filename, { type: 'image/png' }) : null
   const canShare = Boolean(file && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] }))
 
   const share = async () => {
     if (!file) return
     try {
-      await navigator.share({ files: [file], title: `${label} candidate · ${report.target_name ?? ''}`, text: 'A SPHEREx citizen-science discovery candidate', url: link })
+      await navigator.share({ files: [file], title: `${label} candidate · ${report.target_name ?? ''}`, text: 'A SPHEREx citizen-science sighting (unverified)', url: link })
     } catch {
       /* the user dismissed the share sheet */
     }
